@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}案件詳細 - {{ project.title }}{% endblock %}
+
+{% block content %}
+    <h1>案件詳細</h1>
+    <div class="card">
+        <div class="card-header">
+            {{ project.title }}
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">説明:</h5>
+            <p class="card-text">{{ project.description|default:"説明なし" }}</p>
+            <h5 class="card-title">CloudSign Document ID:</h5>
+            <p class="card-text">{{ project.cloudsign_document_id|default:"未設定" }}</p>
+            <p class="card-text"><small class="text-muted">作成日時: {{ project.created_at|date:"Y/m/d H:i" }}</small></p>
+            <p class="card-text"><small class="text-muted">更新日時: {{ project.updated_at|date:"Y/m/d H:i" }}</small></p>
+            <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-warning">編集</a>
+            <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-danger">削除</a>
+            <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">一覧に戻る</a>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}案件削除確認{% endblock %}
+
+{% block content %}
+    <h1>案件削除確認</h1>
+    <p>本当に「{{ project.title }}」を削除しますか？</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">削除</button>
+        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-secondary">キャンセル</a>
+    </form>
+{% endblock %}

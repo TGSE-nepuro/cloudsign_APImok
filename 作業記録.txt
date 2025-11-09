@@ -1,0 +1,18 @@
+# 作業記録
+
+## 2025-11-09
+- プロジェクト開始
+- 開発環境の構築を開始
+- Docker環境の構築完了
+    - .gitignore, requirements.txt, Dockerfile, docker-compose.yml 作成
+    - Dockerコンテナのビルドと起動
+    - Djangoプロジェクト 'cloudsign_project' 作成
+    - Djangoアプリ 'projects' 作成
+    - settings.py 設定 (ALLOWED_HOSTS, INSTALLED_APPS)
+    - データベースマイグレーション実行
+- Projectモデル定義 (projects/models.py)
+- マイグレーションファイルの生成と適用
+- ProjectモデルをDjango Adminに登録 (projects/admin.py)
+- ProjectモデルのCRUDビューとURLを実装 (projects/views.py, projects/urls.py)
+- メインのurls.pyにprojectsアプリのURLを含める (cloudsign_project/urls.py)
+- 案件管理用のHTMLテンプレートを作成 (base.html, project_list.html, project_detail.html, project_form.html, project_confirm_delete.html)

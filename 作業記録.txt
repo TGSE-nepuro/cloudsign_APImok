@@ -27,3 +27,7 @@
         2.  `CloudSignConfig` 管理画面の実装: `CloudSignConfig` モデルの作成・更新を行うためのビュー、URL、テンプレートを作成。`admin.py` に `CloudSignConfig` を登録。
         3.  APIクライアントモジュール (`projects/cloudsign_api.py`) の実装: `CloudSignConfig` モデルから `client_id` を取得し、アクセストークンを取得するロジックを実装。CloudSign APIの他のエンドポイントと連携する関数を実装。
         4.  `Project` ビューへのAPI統合: `Project` のCRUD操作にAPI呼び出しを統合。
+- CloudSignConfigモデル定義 (projects/models.py)
+- CloudSignConfigモデルのマイグレーション生成と適用
+- CloudSignConfigモデルをDjango Adminに登録 (projects/admin.py)
+- CloudSignConfigのCRUDビュー、URL、テンプレートを実装 (projects/views.py, projects/forms.py, projects/urls.py, cloudsignconfig_form.html)

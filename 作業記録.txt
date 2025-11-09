@@ -16,3 +16,14 @@
 - ProjectモデルのCRUDビューとURLを実装 (projects/views.py, projects/urls.py)
 - メインのurls.pyにprojectsアプリのURLを含める (cloudsign_project/urls.py)
 - 案件管理用のHTMLテンプレートを作成 (base.html, project_list.html, project_detail.html, project_form.html, project_confirm_delete.html)
+- Gitコミット: "feat: Initial Django project setup with projects app CRUD and templates"
+
+## 2025-11-09 (更新)
+- CloudSign API連携計画の更新
+    - client_secretは不要であることを確認
+    - クライアントID管理画面の要望に対応
+    - **更新された計画:**
+        1.  `CloudSignConfig` モデルの作成: `projects/models.py` に `client_id` とAPIベースURLを保存する `CloudSignConfig` モデルを作成（シングルトンとして扱う）。`makemigrations` と `migrate` を実行。
+        2.  `CloudSignConfig` 管理画面の実装: `CloudSignConfig` モデルの作成・更新を行うためのビュー、URL、テンプレートを作成。`admin.py` に `CloudSignConfig` を登録。
+        3.  APIクライアントモジュール (`projects/cloudsign_api.py`) の実装: `CloudSignConfig` モデルから `client_id` を取得し、アクセストークンを取得するロジックを実装。CloudSign APIの他のエンドポイントと連携する関数を実装。
+        4.  `Project` ビューへのAPI統合: `Project` のCRUD操作にAPI呼び出しを統合。

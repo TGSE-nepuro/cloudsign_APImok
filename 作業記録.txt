@@ -37,3 +37,8 @@
     - アクセストークンを取得する `_get_access_token` メソッドを実装（クライアントクレデンシャルフローを想定したプレースホルダー）。
     - 認証済みAPIリクエストを実行する `_make_authenticated_request` メソッドを実装（エラーハンドリングとトークンリフレッシュ機能を含む）。
     - `create_document`, `get_document_status`, `send_document` の例示APIメソッドを追加。
+- `Project` ビューへのAPI統合 (`projects/views.py`)
+    - `ProjectCreateView` で、プロジェクト作成時にCloudSignドキュメントを作成し、`cloudsign_document_id` を保存するように変更。
+    - `ProjectUpdateView` で、`cloudsign_document_id` がない場合にCloudSignドキュメントを作成するように変更。既存ドキュメントの更新は未実装。
+    - `ProjectDetailView` で、CloudSignドキュメントのステータスを取得し表示するように変更。
+    - `messages` フレームワークを導入し、API連携の成功・失敗をユーザーに通知。

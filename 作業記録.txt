@@ -64,3 +64,18 @@
         - `projects/project_form.html`は`{{ form.as_p }}`を使用しているため、変更不要。
         - `projects/project_detail.html`を更新し、`customer_info`, `due_date`, `amount`を表示するように変更。
         - `projects/project_list.html`を更新し、各案件の`customer_info`と`due_date`を表示するように変更。
+
+## 2025-11-25 (更新)
+- MacでDocker Desktopがインストールできない環境での動作対応
+    - Dockerを使用しないMac環境でのDjangoアプリケーション動作に必要な手順を検討。
+    - 主にPython環境、PostgreSQLデータベースのセットアップ、Django設定の変更が必要となる。
+    - **フェーズ1: `settings.py`の環境依存性解消**
+        - `cloudsign_project/settings.py`を修正し、`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `DATABASES`の設定を環境変数から読み込むように変更。
+        - `DATABASES`はPostgreSQLをデフォルトとし、環境変数から接続情報を取得。環境変数が設定されていない場合はSQLiteにフォールバックするロジックを削除し、PostgreSQLを必須とする。
+        - `settings_local.py`をインポートするロジックを追加。
+        - `cloudsign_project/settings_local.py`を作成し、Macでの直接実行時に使用するPostgreSQLのデータベース設定を記述。
+        - `.gitignore`を修正し、`cloudsign_project/settings_local.py`をGit管理から除外。
+        - プロジェクトルートに`.env`ファイルを作成し、Docker環境で使用する環境変数を定義（`DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`）。
+        - `.gitignore`を修正し、`.env`をGit管理から除外。
+    - **フェーズ2: `requirements.txt`の確認**
+        - `requirements.txt`に`psycopg2-binary`を追加。

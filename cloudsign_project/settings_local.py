@@ -1,0 +1,24 @@
+# cloudsign_project/settings_local.py
+# This file is for local development settings and should NOT be committed to Git.
+
+# Override DATABASES for local Mac execution (without Docker)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'cloudsign_db',       # Mac上で作成したデータベース名
+        'USER': 'cloudsign_user',     # Mac上で作成したユーザー名
+        'PASSWORD': 'your_password',  # Mac上で設定したパスワード
+        'HOST': 'localhost',          # Mac上で直接動作するためlocalhost
+        'PORT': '5432',               # PostgreSQLのデフォルトポート
+    }
+}
+
+# Override DEBUG for local Mac execution if needed
+# DEBUG = True
+
+# Override ALLOWED_HOSTS for local Mac execution if needed
+# ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+# Other local settings can be added here
+# For example, if you have a local CloudSign client ID that you don't want in environment variables
+# CLOUDSIGN_CLIENT_ID = "your_local_mac_cloudsign_client_id"

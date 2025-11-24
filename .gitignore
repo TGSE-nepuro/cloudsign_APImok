@@ -11,10 +11,11 @@ venv/
 # Django
 *.log
 db.sqlite3
+cloudsign_project/settings_local.py # Exclude local settings
 
 # Docker
 .dockerignore
-.env
+.env # Ensure .env is ignored
 
 # VSCode
 .vscode/

@@ -1,13 +1,16 @@
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages # Import messages framework
 from .models import Project, CloudSignConfig
-from .forms import CloudSignConfigForm
+from .forms import CloudSignConfigForm, ProjectForm # Import ProjectForm
 from .cloudsign_api import CloudSignAPIClient # Import CloudSignAPIClient
 import logging
 
 logger = logging.getLogger(__name__)
+
+class HomeView(TemplateView):
+    template_name = 'projects/home.html'
 
 class ProjectListView(ListView):
     model = Project
@@ -36,7 +39,7 @@ class ProjectDetailView(DetailView):
 class ProjectCreateView(CreateView):
     model = Project
     template_name = 'projects/project_form.html'
-    fields = ['title', 'description'] # Removed cloudsign_document_id from fields
+    form_class = ProjectForm # Use ProjectForm
     success_url = reverse_lazy('projects:project_list')
 
     def form_valid(self, form):
@@ -48,6 +51,7 @@ class ProjectCreateView(CreateView):
                 "title": project.title,
                 "description": project.description,
                 # Add other necessary fields for CloudSign document creation
+                # For now, only title and description are passed to CloudSign API
             }
             cloudsign_response = client.create_document(document_data)
             # Assuming the CloudSign API returns the document ID in the response
@@ -66,7 +70,7 @@ class ProjectCreateView(CreateView):
 class ProjectUpdateView(UpdateView):
     model = Project
     template_name = 'projects/project_form.html'
-    fields = ['title', 'description'] # Removed cloudsign_document_id from fields
+    form_class = ProjectForm # Use ProjectForm
     success_url = reverse_lazy('projects:project_list')
 
     def form_valid(self, form):

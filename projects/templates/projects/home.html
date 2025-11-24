@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}ホーム{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">案件管理システム</h1>
+    <div class="list-group">
+        <a href="{% url 'projects:project_create' %}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">案件登録</h5>
+            <p class="mb-1">新しい案件を登録します。</p>
+        </a>
+        <a href="{% url 'projects:project_list' %}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">案件一覧</h5>
+            <p class="mb-1">登録済みの案件を一覧表示・管理します。</p>
+        </a>
+        <a href="{% url 'projects:cloudsign_config' %}" class="list-group-item list-group-item-action">
+            <h5 class="mb-1">CloudSign設定</h5>
+            <p class="mb-1">CloudSign API連携のためのクライアントIDなどを設定します。</p>
+        </a>
+    </div>
+</div>
+{% endblock %}

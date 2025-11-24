@@ -5,6 +5,9 @@ from django.utils.translation import gettext_lazy as _
 class Project(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
+    customer_info = models.TextField(blank=True, null=True, help_text=_("取引先情報"))
+    due_date = models.DateField(blank=True, null=True, help_text=_("期日"))
+    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text=_("金額"))
     cloudsign_document_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

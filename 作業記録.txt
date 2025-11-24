@@ -42,3 +42,25 @@
     - `ProjectUpdateView` で、`cloudsign_document_id` がない場合にCloudSignドキュメントを作成するように変更。既存ドキュメントの更新は未実装。
     - `ProjectDetailView` で、CloudSignドキュメントのステータスを取得し表示するように変更。
     - `messages` フレームワークを導入し、API連携の成功・失敗をユーザーに通知。
+
+## 2025-11-25
+- 画面構成の取り組み
+    - 以下の画面が必要:
+        1.  トップ画面 (案件登録、一覧画面、クライアントID登録画面への遷移ボタン)
+        2.  案件登録画面 (案件名、取引先情報、日付、金額等)
+        3.  案件一覧画面
+        4.  案件詳細・ステータス確認画面
+        5.  クライアントID登録画面
+    - **フェーズ1: `Project`モデルの拡張**
+        - `projects/models.py`に`customer_info` (TextField), `due_date` (DateField), `amount` (DecimalField) フィールドを追加。
+        - 新しいマイグレーションファイル`projects/migrations/0003_project_amount_project_customer_info_and_more.py`を作成し、適用。
+    - **フェーズ2: トップ画面の実装**
+        - `projects/views.py`に`HomeView` (TemplateView) を追加。
+        - `projects/templates/projects/home.html`を作成し、案件登録、案件一覧、CloudSign設定画面へのリンクを配置。
+        - `projects/urls.py`を修正し、`HomeView`をルートURLに設定し、`ProjectListView`のURLを`list/`に変更。
+    - **フェーズ3: プロジェクトフォームとテンプレートの更新**
+        - `projects/forms.py`に`ProjectForm`を追加し、`title`, `description`, `customer_info`, `due_date`, `amount`フィールドを含める。`due_date`にはHTML5のdate inputウィジェットを設定。
+        - `projects/views.py`の`ProjectCreateView`と`ProjectUpdateView`で`fields`の代わりに`form_class = ProjectForm`を使用するように変更。
+        - `projects/project_form.html`は`{{ form.as_p }}`を使用しているため、変更不要。
+        - `projects/project_detail.html`を更新し、`customer_info`, `due_date`, `amount`を表示するように変更。
+        - `projects/project_list.html`を更新し、各案件の`customer_info`と`due_date`を表示するように変更。

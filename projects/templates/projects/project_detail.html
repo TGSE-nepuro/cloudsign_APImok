@@ -11,8 +11,18 @@
         <div class="card-body">
             <h5 class="card-title">説明:</h5>
             <p class="card-text">{{ project.description|default:"説明なし" }}</p>
+            <h5 class="card-title">取引先情報:</h5>
+            <p class="card-text">{{ project.customer_info|default:"未設定" }}</p>
+            <h5 class="card-title">期日:</h5>
+            <p class="card-text">{{ project.due_date|default:"未設定" }}</p>
+            <h5 class="card-title">金額:</h5>
+            <p class="card-text">{{ project.amount|default:"未設定" }}</p>
             <h5 class="card-title">CloudSign Document ID:</h5>
             <p class="card-text">{{ project.cloudsign_document_id|default:"未設定" }}</p>
+            {% if cloudsign_status %}
+                <h5 class="card-title">CloudSign ステータス:</h5>
+                <p class="card-text">{{ cloudsign_status }}</p>
+            {% endif %}
             <p class="card-text"><small class="text-muted">作成日時: {{ project.created_at|date:"Y/m/d H:i" }}</small></p>
             <p class="card-text"><small class="text-muted">更新日時: {{ project.updated_at|date:"Y/m/d H:i" }}</small></p>
             <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-warning">編集</a>

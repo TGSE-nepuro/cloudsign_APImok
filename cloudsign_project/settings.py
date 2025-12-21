@@ -10,6 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import pymysql
+pymysql.install_as_MySQLdb()
+
 import os
 from pathlib import Path
 
@@ -84,6 +87,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('MYSQL_PASSWORD', 'cloudsign_password'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '3306'),
+        'OPTIONS': {'ssl': False, 'connect_timeout': 10},
     }
 }
 

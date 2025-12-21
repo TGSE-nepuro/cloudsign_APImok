@@ -117,3 +117,22 @@
     1.  CloudSign API連携の具体的な実装
     2.  UI/UXの改善
 - 今後のGit運用方針: コミット後、適宜GitHubにプッシュする。
+
+## 2025-12-22
+- 開発環境の起動とDB接続のデバッグ
+    - `docker-compose up` 実行時に `project name must not be empty` エラーが発生。Docker Desktopが起動していないことも確認。
+    - Docker Desktop起動後、`docker-compose -p cloudsignapp up` でプロジェクト名を明示的に指定して起動を試みる。
+    - `mysqlclient` のビルドに失敗するため、`Dockerfile` を修正し、ビルドに必要な依存パッケージ (`default-libmysqlclient-dev`, `gcc`, `pkg-config`, `python3-dev`) を追加。
+    - ポート3306の競合が発生したため、`docker-compose.yml` と `.env` を修正し、ホスト側のポートを `3307` に変更。
+    - `migrate` コマンドが `(2002, "Can't connect to local server through socket ...")` エラーで失敗。`settings_local.py` が `HOST` を `localhost` に上書きしていることが原因と特定。
+    - `settings_local.py` のリネーム・削除が権限エラーで失敗したため、`settings.py` を修正し、Docker環境では `settings_local.py` をインポートしないように変更。
+    - `migrate` コマンドが `(2002, "Can't connect to server on 'db' (115)")` エラーで失敗。DBコンテナの起動とWebコンテナの接続要求のタイミング問題（レースコンディション）と判断。
+    - `docker-compose.yml` に `healthcheck` を導入し、DBサービスの準備が完了してからWebサービスが起動するように修正。
+    - `migrate` コマンドが `(2026, "TLS/SSL error: self-signed certificate...")` エラーで失敗。MySQL 8.0のSSL/TLS設定が原因と特定。`settings.py` のDB接続オプションに `{'ssl': False}` を追加してSSLを無効化。
+    - `migrate` コマンドが `(2003, "[Errno 111] Connection refused")` エラーで失敗。`mysqlclient` から `PyMySQL` にDBドライバを変更。`requirements.txt` と `settings.py` を修正。
+    - `PyMySQL` でも同様のエラーが続くため、`cloudsign_user` の認証プラグインが `caching_sha2_password` であることを確認。`mysql_native_password` に変更。
+    - `web` コンテナに `mysql-client` と `netcat-traditional` をインストールし、デバッグツールを追加。
+- **結論:**
+    - 上記のすべてのトラブルシューティングを実施したが、最終的に `(2003, "Can't connect to MySQL server on 'db' ([Errno 111] Connection refused)")` エラーが解決せず。
+    - `nc` コマンドによるTCP接続は成功しており、DBやユーザーも正しく作成されていることを確認済み。
+    - DjangoのDBドライバ (`PyMySQL` または `mysqlclient`) からの接続のみが、環境固有の何らかの要因で拒否されていると結論。

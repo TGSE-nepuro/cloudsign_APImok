@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Install build dependencies for mysqlclient
 RUN apt-get update \
-    && apt-get install -y default-libmysqlclient-dev gcc pkg-config python3-dev \
+    && apt-get install -y default-libmysqlclient-dev gcc pkg-config python3-dev default-mysql-client netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

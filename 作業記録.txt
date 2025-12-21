@@ -79,3 +79,41 @@
         - `.gitignore`を修正し、`.env`をGit管理から除外。
     - **フェーズ2: `requirements.txt`の確認**
         - `requirements.txt`に`psycopg2-binary`を追加。
+- Gitにプッシュ
+    - リモートリポジトリ`https://github.com/TGSE-nepuro/cloudsign_APImok`を追加。
+    - ローカルの`main`ブランチをリモートにプッシュ。
+
+## 2025-11-27
+- 指示書との差異修正
+    - **問題点**:
+        - 指示書ではDBに`MySQL`を指定されているが、実装は`PostgreSQL`で進められていた。
+        - 開発環境のパスに日本語とスペースが含まれているため、`docker-compose`等のシェルコマンドが正常に実行できなかった。
+    - **対応**:
+        1.  **DBをMySQLに変更**:
+            - `requirements.txt`: `psycopg2-binary`を`mysqlclient`に変更。
+            - `docker-compose.yml`: DBサービスを`postgres`から`mysql:8.0`に変更。
+            - `.env`: DB接続情報を`PostgreSQL`用から`MySQL`用に変更。
+            - `settings.py`: DBエンジンを`django.db.backends.mysql`に変更し、`MySQL`用の環境変数を参照するように修正。
+            - `settings_local.py`: Macでのローカル実行用のDB設定を`MySQL`用に修正。
+        2.  **シェルコマンド実行問題の解決**:
+            - Windowsの標準シェルが複雑なパスを誤って解釈していたため、`PowerShell`を明示的に呼び出すことで問題を回避。
+            - `powershell -Command "& { Set-Location -Path '...'; <コマンド> }"` の形式でコマンドを実行。
+        3.  **環境の再構築**:
+            - `docker-compose down -v`で既存環境を完全に削除。
+            - `docker-compose build`で`mysqlclient`を含むイメージを再構築。
+            - `docker-compose up -d`で`MySQL`コンテナと共に`Web`コンテナを起動。
+            - `docker-compose exec web python manage.py migrate`を実行し、`MySQL`データベースにテーブルが作成されることを確認。
+
+## 2025-11-27 (更新)
+- **API連携方針の確立**:
+    - 指示書にAPIエンドポイントのバージョンの記載がなかったため、公式APIリファレンス(SwaggerHub)を正として開発を進める方針を決定。
+    - 今後のAPI仕様に関する不明点は、都度公式リファレンスを参照する。
+- **APIクライアントの修正**:
+    - `cloudsign_api.py`内のエンドポイントから、誤って付与されていたバージョンプレフィックス(`/v1`, `/v2`)を削除し、公式リファレンス通りのパス (`/documents`など) に修正。
+    - アクセストークン取得処理を改善し、有効期限を考慮するよう修正。
+
+## 2025-11-25 (更新)
+- 今後の作業方針:
+    1.  CloudSign API連携の具体的な実装
+    2.  UI/UXの改善
+- 今後のGit運用方針: コミット後、適宜GitHubにプッシュする。

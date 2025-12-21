@@ -8,7 +8,12 @@ ENV PYTHONUNBUFFERED 1
 # Set work directory
 WORKDIR /app
 
-# Install dependencies
+# Install build dependencies for mysqlclient
+RUN apt-get update \
+    && apt-get install -y default-libmysqlclient-dev gcc pkg-config python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
 # Copy the requirements file first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

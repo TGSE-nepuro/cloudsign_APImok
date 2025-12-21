@@ -1,6 +1,15 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import FileExtensionValidator
+
+def validate_file_size(value):
+    """
+    Validates that the file size is not greater than 20 MB.
+    """
+    limit = 20 * 1024 * 1024  # 20 MB
+    if value.size > limit:
+        raise ValidationError(_('File size cannot exceed 20 MB.'))
 
 class Project(models.Model):
     title = models.CharField(max_length=200)
@@ -8,12 +17,26 @@ class Project(models.Model):
     customer_info = models.TextField(blank=True, null=True, help_text=_("取引先情報"))
     due_date = models.DateField(blank=True, null=True, help_text=_("期日"))
     amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text=_("金額"))
-    cloudsign_document_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    cloudsign_document_id = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title
+
+class ContractFile(models.Model):
+    project = models.ForeignKey(Project, related_name='files', on_delete=models.CASCADE)
+    file = models.FileField(
+        upload_to='contracts/%Y/%m/%d/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['pdf']),
+            validate_file_size
+        ]
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.project.title} - {self.file.name}"
 
 class CloudSignConfig(models.Model):
     client_id = models.CharField(max_length=255, unique=True, help_text=_("CloudSign API Client ID"))

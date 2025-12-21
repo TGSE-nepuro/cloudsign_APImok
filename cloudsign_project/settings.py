@@ -78,12 +78,12 @@ WSGI_APPLICATION = 'cloudsign_project.wsgi.application'
 # Default to SQLite, override with PostgreSQL in Docker or settings_local.py
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'cloudsign_db'),
-        'USER': os.environ.get('POSTGRES_USER', 'cloudsign_user'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'cloudsign_password'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'db'), # 'db' for Docker, 'localhost' for local Mac
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('MYSQL_DATABASE', 'cloudsign_db'),
+        'USER': os.environ.get('MYSQL_USER', 'cloudsign_user'),
+        'PASSWORD': os.environ.get('MYSQL_PASSWORD', 'cloudsign_password'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '3306'),
     }
 }
 
@@ -124,13 +124,20 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Media files (User-uploaded files)
+# https://docs.djangoproject.com/en/4.2/topics/files/
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Import local settings if present
-try:
-    from .settings_local import *
-except ImportError:
-    pass
+# Import local settings only if not running in Docker (determined by DB_HOST env var)
+if os.environ.get('DB_HOST') != 'db':
+    try:
+        from .settings_local import *
+    except ImportError:
+        pass

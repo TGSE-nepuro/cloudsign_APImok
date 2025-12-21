@@ -4,10 +4,64 @@
 
 {% block content %}
     <h1>{% if form.instance.pk %}案件編集{% else %}新規案件作成{% endif %}</h1>
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
+        
+        <h2>案件情報</h2>
         {{ form.as_p }}
+
+        <hr>
+
+        <h2>契約書ファイル (PDFのみ、合計50MB・100ファイルまで)</h2>
+        {{ formset.management_form }}
+        
+        {% if formset.non_form_errors %}
+            <div class="alert alert-danger">
+                {{ formset.non_form_errors }}
+            </div>
+        {% endif %}
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ファイル</th>
+                    <th>削除</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file_form in formset %}
+                    <tr>
+                        <td>
+                            {% if file_form.instance.pk and file_form.instance.file %}
+                                <p>現在設定されているファイル: <a href="{{ file_form.instance.file.url }}" target="_blank">{{ file_form.instance.file.name }}</a></p>
+                            {% endif %}
+                            {{ file_form.file }}
+                            {% for error in file_form.file.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                            {{ file_form.id }}
+                        </td>
+                        <td>
+                            {% if file_form.instance.pk %}
+                                {{ file_form.DELETE }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
         <button type="submit" class="btn btn-primary">保存</button>
         <a href="{% if form.instance.pk %}{% url 'projects:project_detail' form.instance.pk %}{% else %}{% url 'projects:project_list' %}{% endif %}" class="btn btn-secondary">キャンセル</a>
     </form>
+
+    <script>
+        // Add accept="application/pdf" to all file inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInputs = document.querySelectorAll('input[type="file"]');
+            fileInputs.forEach(function(input) {
+                input.setAttribute('accept', 'application/pdf');
+            });
+        });
+    </script>
 {% endblock %}

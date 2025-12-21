@@ -4,12 +4,15 @@
 # Override DATABASES for local Mac execution (without Docker)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cloudsign_db',       # Mac上で作成したデータベース名
         'USER': 'cloudsign_user',     # Mac上で作成したユーザー名
         'PASSWORD': 'your_password',  # Mac上で設定したパスワード
         'HOST': 'localhost',          # Mac上で直接動作するためlocalhost
-        'PORT': '5432',               # PostgreSQLのデフォルトポート
+        'PORT': '3306',               # MySQLのデフォルトポート
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 

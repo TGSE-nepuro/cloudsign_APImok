@@ -1,138 +1,20 @@
-# 作業記録
+### 作業記録
 
-## 2025-11-09
-- プロジェクト開始
-- 開発環境の構築を開始
-- Docker環境の構築完了
-    - .gitignore, requirements.txt, Dockerfile, docker-compose.yml 作成
-    - Dockerコンテナのビルドと起動
-    - Djangoプロジェクト 'cloudsign_project' 作成
-    - Djangoアプリ 'projects' 作成
-    - settings.py 設定 (ALLOWED_HOSTS, INSTALLED_APPS)
-    - データベースマイグレーション実行
-- Projectモデル定義 (projects/models.py)
-- マイグレーションファイルの生成と適用
-- ProjectモデルをDjango Adminに登録 (projects/admin.py)
-- ProjectモデルのCRUDビューとURLを実装 (projects/views.py, projects/urls.py)
-- メインのurls.pyにprojectsアプリのURLを含める (cloudsign_project/urls.py)
-- 案件管理用のHTMLテンプレートを作成 (base.html, project_list.html, project_detail.html, project_form.html, project_confirm_delete.html)
-- Gitコミット: "feat: Initial Django project setup with projects app CRUD and templates"
+#### 1. プロジェクトの初期確認
+*   `ls -Recurse` コマンドでプロジェクトのファイル構造を確認しました。Djangoプロジェクトであり、`cloudsign_project` と `projects` アプリが存在することを確認しました。
+*   `docker-compose.yml`, `Dockerfile`, `.env`, `requirements.txt` の存在を確認しました。
+*   `models.py`, `views.py`, `cloudsign_api.py` の内容を確認し、アプリケーションの概要（プロジェクト管理、CloudSign連携による書類作成・ステータス取得）を把握しました。
 
-## 2025-11-09 (更新)
-- CloudSign API連携計画の更新
-    - client_secretは不要であることを確認
-    - クライアントID管理画面の要望に対応
-    - **更新された計画:**
-        1.  `CloudSignConfig` モデルの作成: `projects/models.py` に `client_id` とAPIベースURLを保存する `CloudSignConfig` モデルを作成（シングルトンとして扱う）。`makemigrations` と `migrate` を実行。
-        2.  `CloudSignConfig` 管理画面の実装: `CloudSignConfig` モデルの作成・更新を行うためのビュー、URL、テンプレートを作成。`admin.py` に `CloudSignConfig` を登録。
-        3.  APIクライアントモジュール (`projects/cloudsign_api.py`) の実装: `CloudSignConfig` モデルから `client_id` を取得し、アクセストークンを取得するロジックを実装。CloudSign APIの他のエンドポイントと連携する関数を実装。
-        4.  `Project` ビューへのAPI統合: `Project` のCRUD操作にAPI呼び出しを統合。
-- CloudSignConfigモデル定義 (projects/models.py)
-- CloudSignConfigモデルのマイグレーション生成と適用
-- CloudSignConfigモデルをDjango Adminに登録 (projects/admin.py)
-- CloudSignConfigのCRUDビュー、URL、テンプレートを実装 (projects/views.py, projects/forms.py, projects/urls.py, cloudsignconfig_form.html)
-- CloudSign APIクライアントモジュール (`projects/cloudsign_api.py`) の実装
-    - `CloudSignAPIClient` クラスを定義し、シングルトンパターンを適用。
-    - `CloudSignConfig` モデルから `client_id` と `api_base_url` を取得する `_load_config` メソッドを実装。
-    - アクセストークンを取得する `_get_access_token` メソッドを実装（クライアントクレデンシャルフローを想定したプレースホルダー）。
-    - 認証済みAPIリクエストを実行する `_make_authenticated_request` メソッドを実装（エラーハンドリングとトークンリフレッシュ機能を含む）。
-    - `create_document`, `get_document_status`, `send_document` の例示APIメソッドを追加。
-- `Project` ビューへのAPI統合 (`projects/views.py`)
-    - `ProjectCreateView` で、プロジェクト作成時にCloudSignドキュメントを作成し、`cloudsign_document_id` を保存するように変更。
-    - `ProjectUpdateView` で、`cloudsign_document_id` がない場合にCloudSignドキュメントを作成するように変更。既存ドキュメントの更新は未実装。
-    - `ProjectDetailView` で、CloudSignドキュメントのステータスを取得し表示するように変更。
-    - `messages` フレームワークを導入し、API連携の成功・失敗をユーザーに通知。
+#### 2. 指示書の確認
+*   `指示書.txt` の内容を読み込みました。
+*   Docker不使用の指示がある一方で、既存プロジェクトにDocker関連ファイルが存在するという矛盾を確認しました。
 
-## 2025-11-25
-- 画面構成の取り組み
-    - 以下の画面が必要:
-        1.  トップ画面 (案件登録、一覧画面、クライアントID登録画面への遷移ボタン)
-        2.  案件登録画面 (案件名、取引先情報、日付、金額等)
-        3.  案件一覧画面
-        4.  案件詳細・ステータス確認画面
-        5.  クライアントID登録画面
-    - **フェーズ1: `Project`モデルの拡張**
-        - `projects/models.py`に`customer_info` (TextField), `due_date` (DateField), `amount` (DecimalField) フィールドを追加。
-        - 新しいマイグレーションファイル`projects/migrations/0003_project_amount_project_customer_info_and_more.py`を作成し、適用。
-    - **フェーズ2: トップ画面の実装**
-        - `projects/views.py`に`HomeView` (TemplateView) を追加。
-        - `projects/templates/projects/home.html`を作成し、案件登録、案件一覧、CloudSign設定画面へのリンクを配置。
-        - `projects/urls.py`を修正し、`HomeView`をルートURLに設定し、`ProjectListView`のURLを`list/`に変更。
-    - **フェーズ3: プロジェクトフォームとテンプレートの更新**
-        - `projects/forms.py`に`ProjectForm`を追加し、`title`, `description`, `customer_info`, `due_date`, `amount`フィールドを含める。`due_date`にはHTML5のdate inputウィジェットを設定。
-        - `projects/views.py`の`ProjectCreateView`と`ProjectUpdateView`で`fields`の代わりに`form_class = ProjectForm`を使用するように変更。
-        - `projects/project_form.html`は`{{ form.as_p }}`を使用しているため、変更不要。
-        - `projects/project_detail.html`を更新し、`customer_info`, `due_date`, `amount`を表示するように変更。
-        - `projects/project_list.html`を更新し、各案件の`customer_info`と`due_date`を表示するように変更。
+#### 3. Docker関連ファイルの削除
+*   ユーザーからの指示に基づき、Docker関連ファイルを削除しました。
+    *   `docker-compose.yml` を削除しました。
+    *   `Dockerfile` を削除しました。
+    *   `.env` を削除しました。
 
-## 2025-11-25 (更新)
-- MacでDocker Desktopがインストールできない環境での動作対応
-    - Dockerを使用しないMac環境でのDjangoアプリケーション動作に必要な手順を検討。
-    - 主にPython環境、PostgreSQLデータベースのセットアップ、Django設定の変更が必要となる。
-    - **フェーズ1: `settings.py`の環境依存性解消**
-        - `cloudsign_project/settings.py`を修正し、`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `DATABASES`の設定を環境変数から読み込むように変更。
-        - `DATABASES`はPostgreSQLをデフォルトとし、環境変数から接続情報を取得。環境変数が設定されていない場合はSQLiteにフォールバックするロジックを削除し、PostgreSQLを必須とする。
-        - `settings_local.py`をインポートするロジックを追加。
-        - `cloudsign_project/settings_local.py`を作成し、Macでの直接実行時に使用するPostgreSQLのデータベース設定を記述。
-        - `.gitignore`を修正し、`cloudsign_project/settings_local.py`をGit管理から除外。
-        - プロジェクトルートに`.env`ファイルを作成し、Docker環境で使用する環境変数を定義（`DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`）。
-        - `.gitignore`を修正し、`.env`をGit管理から除外。
-    - **フェーズ2: `requirements.txt`の確認**
-        - `requirements.txt`に`psycopg2-binary`を追加。
-- Gitにプッシュ
-    - リモートリポジトリ`https://github.com/TGSE-nepuro/cloudsign_APImok`を追加。
-    - ローカルの`main`ブランチをリモートにプッシュ。
-
-## 2025-11-27
-- 指示書との差異修正
-    - **問題点**:
-        - 指示書ではDBに`MySQL`を指定されているが、実装は`PostgreSQL`で進められていた。
-        - 開発環境のパスに日本語とスペースが含まれているため、`docker-compose`等のシェルコマンドが正常に実行できなかった。
-    - **対応**:
-        1.  **DBをMySQLに変更**:
-            - `requirements.txt`: `psycopg2-binary`を`mysqlclient`に変更。
-            - `docker-compose.yml`: DBサービスを`postgres`から`mysql:8.0`に変更。
-            - `.env`: DB接続情報を`PostgreSQL`用から`MySQL`用に変更。
-            - `settings.py`: DBエンジンを`django.db.backends.mysql`に変更し、`MySQL`用の環境変数を参照するように修正。
-            - `settings_local.py`: Macでのローカル実行用のDB設定を`MySQL`用に修正。
-        2.  **シェルコマンド実行問題の解決**:
-            - Windowsの標準シェルが複雑なパスを誤って解釈していたため、`PowerShell`を明示的に呼び出すことで問題を回避。
-            - `powershell -Command "& { Set-Location -Path '...'; <コマンド> }"` の形式でコマンドを実行。
-        3.  **環境の再構築**:
-            - `docker-compose down -v`で既存環境を完全に削除。
-            - `docker-compose build`で`mysqlclient`を含むイメージを再構築。
-            - `docker-compose up -d`で`MySQL`コンテナと共に`Web`コンテナを起動。
-            - `docker-compose exec web python manage.py migrate`を実行し、`MySQL`データベースにテーブルが作成されることを確認。
-
-## 2025-11-27 (更新)
-- **API連携方針の確立**:
-    - 指示書にAPIエンドポイントのバージョンの記載がなかったため、公式APIリファレンス(SwaggerHub)を正として開発を進める方針を決定。
-    - 今後のAPI仕様に関する不明点は、都度公式リファレンスを参照する。
-- **APIクライアントの修正**:
-    - `cloudsign_api.py`内のエンドポイントから、誤って付与されていたバージョンプレフィックス(`/v1`, `/v2`)を削除し、公式リファレンス通りのパス (`/documents`など) に修正。
-    - アクセストークン取得処理を改善し、有効期限を考慮するよう修正。
-
-## 2025-11-25 (更新)
-- 今後の作業方針:
-    1.  CloudSign API連携の具体的な実装
-    2.  UI/UXの改善
-- 今後のGit運用方針: コミット後、適宜GitHubにプッシュする。
-
-## 2025-12-22
-- 開発環境の起動とDB接続のデバッグ
-    - `docker-compose up` 実行時に `project name must not be empty` エラーが発生。Docker Desktopが起動していないことも確認。
-    - Docker Desktop起動後、`docker-compose -p cloudsignapp up` でプロジェクト名を明示的に指定して起動を試みる。
-    - `mysqlclient` のビルドに失敗するため、`Dockerfile` を修正し、ビルドに必要な依存パッケージ (`default-libmysqlclient-dev`, `gcc`, `pkg-config`, `python3-dev`) を追加。
-    - ポート3306の競合が発生したため、`docker-compose.yml` と `.env` を修正し、ホスト側のポートを `3307` に変更。
-    - `migrate` コマンドが `(2002, "Can't connect to local server through socket ...")` エラーで失敗。`settings_local.py` が `HOST` を `localhost` に上書きしていることが原因と特定。
-    - `settings_local.py` のリネーム・削除が権限エラーで失敗したため、`settings.py` を修正し、Docker環境では `settings_local.py` をインポートしないように変更。
-    - `migrate` コマンドが `(2002, "Can't connect to server on 'db' (115)")` エラーで失敗。DBコンテナの起動とWebコンテナの接続要求のタイミング問題（レースコンディション）と判断。
-    - `docker-compose.yml` に `healthcheck` を導入し、DBサービスの準備が完了してからWebサービスが起動するように修正。
-    - `migrate` コマンドが `(2026, "TLS/SSL error: self-signed certificate...")` エラーで失敗。MySQL 8.0のSSL/TLS設定が原因と特定。`settings.py` のDB接続オプションに `{'ssl': False}` を追加してSSLを無効化。
-    - `migrate` コマンドが `(2003, "[Errno 111] Connection refused")` エラーで失敗。`mysqlclient` から `PyMySQL` にDBドライバを変更。`requirements.txt` と `settings.py` を修正。
-    - `PyMySQL` でも同様のエラーが続くため、`cloudsign_user` の認証プラグインが `caching_sha2_password` であることを確認。`mysql_native_password` に変更。
-    - `web` コンテナに `mysql-client` と `netcat-traditional` をインストールし、デバッグツールを追加。
-- **結論:**
-    - 上記のすべてのトラブルシューティングを実施したが、最終的に `(2003, "Can't connect to MySQL server on 'db' ([Errno 111] Connection refused)")` エラーが解決せず。
-    - `nc` コマンドによるTCP接続は成功しており、DBやユーザーも正しく作成されていることを確認済み。
-    - DjangoのDBドライバ (`PyMySQL` または `mysqlclient`) からの接続のみが、環境固有の何らかの要因で拒否されていると結論。
+#### 4. 仮想環境の準備
+*   `requirements.txt` の内容（`Django`, `requests`, `PyMySQL`）を確認しました。
+*   仮想環境を構築し、必要なライブラリをインストールする準備を進めます。

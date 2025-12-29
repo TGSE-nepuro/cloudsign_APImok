@@ -77,16 +77,14 @@ WSGI_APPLICATION = 'cloudsign_project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-# Default to SQLite, override with PostgreSQL in Docker or settings_local.py
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('MYSQL_DATABASE', 'cloudsign_db'),
-        'USER': os.environ.get('MYSQL_USER', 'cloudsign_user'),
-        'PASSWORD': os.environ.get('MYSQL_PASSWORD', 'cloudsign_password'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
+        'NAME': 'cloudsign_db',
+        'USER': 'cloudsign_user',
+        'PASSWORD': 'cloudsign_password',
+        'HOST': 'localhost',
+        'PORT': '3306',
         'OPTIONS': {'ssl': False, 'connect_timeout': 10},
     }
 }
@@ -138,10 +136,3 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Import local settings only if not running in Docker (determined by DB_HOST env var)
-if os.environ.get('DB_HOST') != 'db':
-    try:
-        from .settings_local import *
-    except ImportError:
-        pass

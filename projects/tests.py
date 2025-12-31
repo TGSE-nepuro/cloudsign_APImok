@@ -571,4 +571,69 @@ class DocumentSendViewTests(TestCase):
         self.assertEqual(len(messages), 1)
         self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、ドキュメントを送信できません。")
 
+class DocumentDownloadViewTests(TestCase):
+    def setUp(self):
+        CloudSignAPIClient._instance = None
+        CloudSignConfig.objects.create(
+            client_id="test_client_id",
+            api_base_url="https://api-sandbox.cloudsign.jp"
+        )
+        self.project = Project.objects.create(
+            title="Project for Download",
+            description="Description for download test",
+            cloudsign_document_id="doc_id_for_download_test"
+        )
+        self.client = Client()
+        self.download_document_url = reverse('projects:download_document', kwargs={'pk': self.project.pk})
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.download_document')
+    @patch('projects.cloudsign_api.CloudSignAPIClient._get_access_token')
+    def test_get_download_document_success(self, mock_get_access_token, mock_download_document):
+        mock_get_access_token.return_value = "dummy_access_token"
+        mock_download_document.return_value = b"This is a test PDF content."
+
+        response = self.client.get(self.download_document_url)
+
+        mock_download_document.assert_called_once_with(
+            self.project.cloudsign_document_id
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'attachment; filename="cloudsign_document_{self.project.cloudsign_document_id}.pdf"', response['Content-Disposition'])
+        self.assertEqual(response.content, b"This is a test PDF content.")
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.download_document')
+    @patch('projects.cloudsign_api.CloudSignAPIClient._get_access_token')
+    def test_get_download_document_api_error(self, mock_get_access_token, mock_download_document):
+        mock_get_access_token.return_value = "dummy_access_token"
+        mock_download_document.side_effect = Exception("API Download Error")
+
+        response = self.client.get(self.download_document_url, follow=True)
+
+        mock_download_document.assert_called_once()
+        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertIn("CloudSignドキュメントのダウンロードに失敗しました: API Download Error", str(messages[0]))
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.download_document')
+    @patch('projects.cloudsign_api.CloudSignAPIClient._get_access_token')
+    def test_get_download_document_no_cloudsign_document_id(self, mock_get_access_token, mock_download_document):
+        mock_get_access_token.return_value = "dummy_access_token"
+        
+        project_no_doc_id = Project.objects.create(
+            title="Project No Doc ID for Download",
+            description="Description",
+            cloudsign_document_id=""
+        )
+        download_document_url_no_doc_id = reverse('projects:download_document', kwargs={'pk': project_no_doc_id.pk})
+
+        response = self.client.get(download_document_url_no_doc_id, follow=True)
+
+        mock_download_document.assert_not_called()
+        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': project_no_doc_id.pk}))
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、ドキュメントをダウンロードできません。")
+
 

@@ -263,3 +263,27 @@ class DocumentSendView(View):
         
         return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
 
+from django.http import HttpResponse # Add this import
+
+class DocumentDownloadView(View):
+    def get(self, request, pk):
+        project = get_object_or_404(Project, pk=pk)
+
+        if not project.cloudsign_document_id:
+            messages.error(request, "CloudSignドキュメントIDがないため、ドキュメントをダウンロードできません。")
+            return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
+
+        try:
+            client = CloudSignAPIClient()
+            file_content = client.download_document(project.cloudsign_document_id)
+            
+            # Assuming the file is a PDF for now, and a generic filename
+            response = HttpResponse(file_content, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="cloudsign_document_{project.cloudsign_document_id}.pdf"'
+            return response
+        except Exception as e:
+            logger.error(f"Failed to download CloudSign document {project.cloudsign_document_id}: {e}")
+            messages.error(request, f"CloudSignドキュメントのダウンロードに失敗しました: {e}")
+            return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
+
+

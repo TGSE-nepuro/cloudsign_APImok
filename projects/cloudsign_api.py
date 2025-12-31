@@ -167,3 +167,35 @@ class CloudSignAPIClient:
         :return: The API response.
         """
         return self._make_authenticated_request("PUT", f"/documents/{document_id}", data=update_data)
+
+    def download_document(self, document_id):
+        """
+        Downloads the signed document file.
+        :param document_id: The ID of the document.
+        :return: The raw content of the document file.
+        """
+        self._get_access_token() # Ensure token is available
+
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        url = f"{self.api_base_url}/documents/{document_id}/file" # Assuming this endpoint
+
+        try:
+            response = requests.get(url, headers=headers, stream=True, timeout=60)
+            response.raise_for_status() # Raise an exception for HTTP errors
+            return response.content # Return raw content
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error during CloudSign document download for {document_id}: {e.response.status_code} - {e.response.text}")
+            if e.response.status_code == 401:
+                logger.info("Access token may be expired. Retrying download with refreshed token.")
+                self.access_token = None
+                self.token_expires_at = None
+                self._get_access_token() # Refresh token
+                headers["Authorization"] = f"Bearer {self.access_token}" # Update header
+                response = requests.get(url, headers=headers, stream=True, timeout=60)
+                response.raise_for_status()
+                return response.content
+            raise Exception(f"CloudSign document download failed with status {e.response.status_code}: {e.response.text}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during CloudSign document download for {document_id}: {e}")
+            raise Exception(f"CloudSign document download failed due to a network error: {e}")
+

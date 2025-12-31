@@ -48,6 +48,7 @@
                     {% csrf_token %}
                     <button type="submit" class="btn btn-success" onclick="return confirm('本当にドキュメントを送信しますか？')">ドキュメントを送信</button>
                 </form>
+                <a href="{% url 'projects:download_document' project.pk %}" class="btn btn-primary" style="margin-left: 5px;">ドキュメントをダウンロード</a>
             {% endif %}
         </div>
     </div>

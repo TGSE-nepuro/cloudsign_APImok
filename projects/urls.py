@@ -8,7 +8,8 @@ from .views import (
     ProjectDeleteView,
     CloudSignConfigView,
     ParticipantCreateView,
-    DocumentSendView # Add this import
+    DocumentSendView,
+    DocumentDownloadView # Add this import
 )
 
 app_name = 'projects'
@@ -23,4 +24,5 @@ urlpatterns = [
     path('cloudsign-config/', CloudSignConfigView.as_view(), name='cloudsign_config'),
     path('<int:pk>/add-participant/', ParticipantCreateView.as_view(), name='add_participant'),
     path('<int:pk>/send-document/', DocumentSendView.as_view(), name='send_document'),
+    path('<int:pk>/download-document/', DocumentDownloadView.as_view(), name='download_document'),
 ]

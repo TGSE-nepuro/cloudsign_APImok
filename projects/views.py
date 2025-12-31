@@ -6,6 +6,7 @@ from .models import Project, CloudSignConfig, ContractFile
 from .forms import CloudSignConfigForm, ProjectForm, ContractFileFormSet, ParticipantForm
 from .cloudsign_api import CloudSignAPIClient
 import logging
+import requests # Import requests here
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,21 @@ class ProjectDetailView(DetailView):
                 document_details = client.get_document(project.cloudsign_document_id)
                 context['cloudsign_status'] = document_details.get('status', '取得できませんでした')
                 context['cloudsign_participants'] = document_details.get('participants', [])
+            except requests.exceptions.HTTPError as e:
+                error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+                logger.error(f"Failed to get CloudSign document details for project {project.id}: {error_message}")
+                context['cloudsign_status'] = f"ステータス取得エラー: {error_message}"
+                context['cloudsign_participants'] = []
+            except requests.exceptions.RequestException as e:
+                error_message = f"ネットワークエラー: {e}"
+                logger.error(f"Failed to get CloudSign document details for project {project.id}: {error_message}")
+                context['cloudsign_status'] = f"ステータス取得エラー: {error_message}"
+                context['cloudsign_participants'] = []
             except Exception as e:
-                logger.error(f"Failed to get CloudSign document status for project {project.id}: {e}")
-                context['cloudsign_status'] = f"ステータス取得エラー: {e}"
-                context['cloudsign_participants'] = [] # Ensure it's always a list even on error
+                error_message = f"予期せぬエラー: {e}"
+                logger.error(f"Failed to get CloudSign document details for project {project.id}: {error_message}")
+                context['cloudsign_status'] = f"ステータス取得エラー: {error_message}"
+                context['cloudsign_participants'] = []
         
         context['files'] = project.files.all()
         return context
@@ -85,9 +97,20 @@ class ProjectCreateView(CreateView):
                     messages.success(self.request, f"CloudSignドキュメント (ID: {document_id}) が作成されました。")
                 else:
                     messages.warning(self.request, "CloudSign APIからドキュメントIDが返されませんでした。")
+            except requests.exceptions.HTTPError as e:
+                error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+                logger.error(f"Failed to create CloudSign document: {error_message}")
+                form.add_error(None, f"CloudSign連携エラー: {error_message}")
+                return self.form_invalid(form, formset)
+            except requests.exceptions.RequestException as e:
+                error_message = f"ネットワークエラー: {e}"
+                logger.error(f"Failed to create CloudSign document: {error_message}")
+                form.add_error(None, f"CloudSign連携エラー: {error_message}")
+                return self.form_invalid(form, formset)
             except Exception as e:
-                logger.error(f"Failed to create CloudSign document: {e}")
-                form.add_error(None, f"CloudSign連携エラー: {e}")
+                error_message = f"予期せぬエラー: {e}"
+                logger.error(f"Failed to create CloudSign document: {error_message}")
+                form.add_error(None, f"CloudSign連携エラー: {error_message}")
                 return self.form_invalid(form, formset)
         else:
             messages.info(self.request, "ファイルが添付されていないため、CloudSignドキュメントは作成されませんでした。")
@@ -147,9 +170,20 @@ class ProjectUpdateView(UpdateView):
                     }
                 )
                 messages.success(self.request, f"CloudSignドキュメント (ID: {self.object.cloudsign_document_id}) が更新されました。")
+            except requests.exceptions.HTTPError as e:
+                error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+                logger.error(f"Failed to update CloudSign document {self.object.cloudsign_document_id}: {error_message}")
+                form.add_error(None, f"CloudSignドキュメント更新エラー: {error_message}")
+                return self.form_invalid(form, formset)
+            except requests.exceptions.RequestException as e:
+                error_message = f"ネットワークエラー: {e}"
+                logger.error(f"Failed to update CloudSign document {self.object.cloudsign_document_id}: {error_message}")
+                form.add_error(None, f"CloudSignドキュメント更新エラー: {error_message}")
+                return self.form_invalid(form, formset)
             except Exception as e:
-                logger.error(f"Failed to update CloudSign document {self.object.cloudsign_document_id}: {e}")
-                form.add_error(None, f"CloudSignドキュメント更新エラー: {e}")
+                error_message = f"予期せぬエラー: {e}"
+                logger.error(f"Failed to update CloudSign document {self.object.cloudsign_document_id}: {error_message}")
+                form.add_error(None, f"CloudSignドキュメント更新エラー: {error_message}")
                 return self.form_invalid(form, formset)
         # If no CloudSign document exists, check if files are attached to create one
         elif not self.object.cloudsign_document_id: # Moved this block here and kept the files logic
@@ -169,9 +203,20 @@ class ProjectUpdateView(UpdateView):
                         messages.success(self.request, f"案件が更新され、新しいCloudSignドキュメント (ID: {document_id}) が作成されました。")
                     else:
                         messages.warning(self.request, "CloudSign APIからドキュメントIDが返されませんでした。")
+                except requests.exceptions.HTTPError as e:
+                    error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+                    logger.error(f"Failed to create CloudSign document during update: {error_message}")
+                    form.add_error(None, f"CloudSign連携エラー: {error_message}")
+                    return self.form_invalid(form, formset)
+                except requests.exceptions.RequestException as e:
+                    error_message = f"ネットワークエラー: {e}"
+                    logger.error(f"Failed to create CloudSign document during update: {error_message}")
+                    form.add_error(None, f"CloudSign連携エラー: {error_message}")
+                    return self.form_invalid(form, formset)
                 except Exception as e:
-                    logger.error(f"Failed to create CloudSign document during update: {e}")
-                    form.add_error(None, f"CloudSign連携エラー: {e}")
+                    error_message = f"予期せぬエラー: {e}"
+                    logger.error(f"Failed to create CloudSign document during update: {error_message}")
+                    form.add_error(None, f"CloudSign連携エラー: {error_message}")
                     return self.form_invalid(form, formset)
             else:
                 messages.info(self.request, "ファイルがないため、CloudSignドキュメントは作成されませんでした。")
@@ -228,10 +273,21 @@ class ParticipantCreateView(FormView):
                 name=form.cleaned_data['name']
             )
             messages.success(self.request, f"参加者 {form.cleaned_data['name']} が正常に追加されました。")
+        except requests.exceptions.HTTPError as e:
+            error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+            logger.error(f"Failed to add participant to CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(self.request, f"参加者の追加に失敗しました: {error_message}")
+            return self.form_invalid(form)
+        except requests.exceptions.RequestException as e:
+            error_message = f"ネットワークエラー: {e}"
+            logger.error(f"Failed to add participant to CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(self.request, f"参加者の追加に失敗しました: {error_message}")
+            return self.form_invalid(form)
         except Exception as e:
-            logger.error(f"Failed to add participant to CloudSign document {project.cloudsign_document_id}: {e}")
-            messages.error(self.request, f"参加者の追加に失敗しました: {e}")
-            return self.form_invalid(form) # Render form with errors
+            error_message = f"予期せぬエラー: {e}"
+            logger.error(f"Failed to add participant to CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(self.request, f"参加者の追加に失敗しました: {error_message}")
+            return self.form_invalid(form)
 
         return super().form_valid(form)
 
@@ -257,9 +313,18 @@ class DocumentSendView(View):
                 send_data={} 
             )
             messages.success(request, f"CloudSignドキュメント (ID: {project.cloudsign_document_id}) が正常に送信されました。")
+        except requests.exceptions.HTTPError as e:
+            error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+            logger.error(f"Failed to send CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(request, f"CloudSignドキュメントの送信に失敗しました: {error_message}")
+        except requests.exceptions.RequestException as e:
+            error_message = f"ネットワークエラー: {e}"
+            logger.error(f"Failed to send CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(request, f"CloudSignドキュメントの送信に失敗しました: {error_message}")
         except Exception as e:
-            logger.error(f"Failed to send CloudSign document {project.cloudsign_document_id}: {e}")
-            messages.error(request, f"CloudSignドキュメントの送信に失敗しました: {e}")
+            error_message = f"予期せぬエラー: {e}"
+            logger.error(f"Failed to send CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(request, f"CloudSignドキュメントの送信に失敗しました: {error_message}")
         
         return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
 
@@ -281,9 +346,20 @@ class DocumentDownloadView(View):
             response = HttpResponse(file_content, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="cloudsign_document_{project.cloudsign_document_id}.pdf"'
             return response
+        except requests.exceptions.HTTPError as e:
+            error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
+            logger.error(f"Failed to download CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(request, f"CloudSignドキュメントのダウンロードに失敗しました: {error_message}")
+            return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
+        except requests.exceptions.RequestException as e:
+            error_message = f"ネットワークエラー: {e}"
+            logger.error(f"Failed to download CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(request, f"CloudSignドキュメントのダウンロードに失敗しました: {error_message}")
+            return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
         except Exception as e:
-            logger.error(f"Failed to download CloudSign document {project.cloudsign_document_id}: {e}")
-            messages.error(request, f"CloudSignドキュメントのダウンロードに失敗しました: {e}")
+            error_message = f"予期せぬエラー: {e}"
+            logger.error(f"Failed to download CloudSign document {project.cloudsign_document_id}: {error_message}")
+            messages.error(request, f"CloudSignドキュメントのダウンロードに失敗しました: {error_message}")
             return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
 
 

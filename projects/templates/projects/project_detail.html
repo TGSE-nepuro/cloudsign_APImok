@@ -23,6 +23,20 @@
                 <h5 class="card-title">CloudSign ステータス:</h5>
                 <p class="card-text">{{ cloudsign_status }}</p>
             {% endif %}
+
+            {% if cloudsign_participants %}
+                <h5 class="card-title">CloudSign 参加者:</h5>
+                <ul class="list-group mb-3">
+                    {% for participant in cloudsign_participants %}
+                        <li class="list-group-item">{{ participant.name }} ({{ participant.email }})</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                {% if project.cloudsign_document_id %}
+                    <p class="card-text">参加者はまだ追加されていません。</p>
+                {% endif %}
+            {% endif %}
+
             <p class="card-text"><small class="text-muted">作成日時: {{ project.created_at|date:"Y/m/d H:i" }}</small></p>
             <p class="card-text"><small class="text-muted">更新日時: {{ project.updated_at|date:"Y/m/d H:i" }}</small></p>
             <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-warning">編集</a>

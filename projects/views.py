@@ -28,11 +28,13 @@ class ProjectDetailView(DetailView):
         if project.cloudsign_document_id:
             try:
                 client = CloudSignAPIClient()
-                document_status = client.get_document(project.cloudsign_document_id)
-                context['cloudsign_status'] = document_status.get('status', '取得できませんでした')
+                document_details = client.get_document(project.cloudsign_document_id)
+                context['cloudsign_status'] = document_details.get('status', '取得できませんでした')
+                context['cloudsign_participants'] = document_details.get('participants', [])
             except Exception as e:
                 logger.error(f"Failed to get CloudSign document status for project {project.id}: {e}")
                 context['cloudsign_status'] = f"ステータス取得エラー: {e}"
+                context['cloudsign_participants'] = [] # Ensure it's always a list even on error
         
         context['files'] = project.files.all()
         return context

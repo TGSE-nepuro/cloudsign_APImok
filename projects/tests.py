@@ -276,6 +276,8 @@ class CloudSignAPIClientTests(TestCase):
         self.assertIn("data", call_kwargs)
         self.assertEqual(call_kwargs["data"], update_data)
 
+
+
 class ProjectUpdateViewTests(TestCase):
     def setUp(self):
         CloudSignAPIClient._instance = None # Ensure a fresh singleton instance
@@ -331,6 +333,49 @@ class ProjectUpdateViewTests(TestCase):
         self.assertRedirects(response, reverse('projects:project_list'))
         self.assertEqual(self.project.title, updated_title)
         self.assertEqual(self.project.description, updated_description)
+
+class ProjectDetailViewTests(TestCase):
+    def setUp(self):
+        CloudSignAPIClient._instance = None # Ensure a fresh singleton instance
+        # Create a CloudSignConfig instance for the client to load
+        CloudSignConfig.objects.create(
+            client_id="test_client_id",
+            api_base_url="https://api-sandbox.cloudsign.jp"
+        )
+        self.client = Client()
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.get_document')
+    def test_project_detail_view_shows_participants(self, mock_get_document):
+        # Create a Project instance with a cloudsign_document_id
+        project = Project.objects.create(
+            title="Project with Participants",
+            description="Description",
+            cloudsign_document_id="doc_id_with_participants"
+        )
+        detail_url = reverse('projects:project_detail', kwargs={'pk': project.pk})
+
+        # Mock get_document for successful document retrieval with participants
+        mock_get_document.return_value = {
+            "id": "doc_id_with_participants",
+            "status": "waiting",
+            "participants": [
+                {"email": "participant1@example.com", "name": "Participant One"},
+                {"email": "participant2@example.com", "name": "Participant Two"}
+            ]
+        }
+
+        response = self.client.get(detail_url)
+
+        # Assertions
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'projects/project_detail.html')
+        self.assertIn('cloudsign_participants', response.context)
+        self.assertEqual(len(response.context['cloudsign_participants']), 2)
+        self.assertEqual(response.context['cloudsign_participants'][0]['name'], "Participant One")
+        self.assertContains(response, "Participant One (participant1@example.com)")
+        self.assertContains(response, "Participant Two (participant2@example.com)")
+
+        mock_get_document.assert_called_once_with(project.cloudsign_document_id)
 
 class ParticipantCreateViewTests(TestCase):
     def setUp(self):
@@ -459,3 +504,4 @@ class ParticipantCreateViewTests(TestCase):
         messages = list(response.context['messages'])
         self.assertEqual(len(messages), 1)
         self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、参加者を追加できません。")
+

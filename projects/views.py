@@ -240,3 +240,26 @@ class ParticipantCreateView(FormView):
         project = get_object_or_404(Project, pk=self.kwargs['pk'])
         context['project'] = project
         return context
+
+class DocumentSendView(View):
+    def post(self, request, pk):
+        project = get_object_or_404(Project, pk=pk)
+
+        if not project.cloudsign_document_id:
+            messages.error(request, "CloudSignドキュメントIDがないため、ドキュメントを送信できません。")
+            return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
+
+        try:
+            client = CloudSignAPIClient()
+            # Assuming send_data can be an empty dict for a simple send action
+            client.send_document(
+                document_id=project.cloudsign_document_id,
+                send_data={} 
+            )
+            messages.success(request, f"CloudSignドキュメント (ID: {project.cloudsign_document_id}) が正常に送信されました。")
+        except Exception as e:
+            logger.error(f"Failed to send CloudSign document {project.cloudsign_document_id}: {e}")
+            messages.error(request, f"CloudSignドキュメントの送信に失敗しました: {e}")
+        
+        return redirect(reverse_lazy('projects:project_detail', kwargs={'pk': pk}))
+

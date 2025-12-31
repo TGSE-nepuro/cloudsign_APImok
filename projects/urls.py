@@ -7,7 +7,8 @@ from .views import (
     ProjectUpdateView,
     ProjectDeleteView,
     CloudSignConfigView,
-    ParticipantCreateView # Add this import
+    ParticipantCreateView,
+    DocumentSendView # Add this import
 )
 
 app_name = 'projects'
@@ -21,4 +22,5 @@ urlpatterns = [
     path('<int:pk>/delete/', ProjectDeleteView.as_view(), name='project_delete'),
     path('cloudsign-config/', CloudSignConfigView.as_view(), name='cloudsign_config'),
     path('<int:pk>/add-participant/', ParticipantCreateView.as_view(), name='add_participant'),
+    path('<int:pk>/send-document/', DocumentSendView.as_view(), name='send_document'),
 ]

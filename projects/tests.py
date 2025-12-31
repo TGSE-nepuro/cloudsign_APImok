@@ -505,3 +505,70 @@ class ParticipantCreateViewTests(TestCase):
         self.assertEqual(len(messages), 1)
         self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、参加者を追加できません。")
 
+class DocumentSendViewTests(TestCase):
+    def setUp(self):
+        CloudSignAPIClient._instance = None
+        CloudSignConfig.objects.create(
+            client_id="test_client_id",
+            api_base_url="https://api-sandbox.cloudsign.jp"
+        )
+        self.project = Project.objects.create(
+            title="Project for Sending",
+            description="Description for send test",
+            cloudsign_document_id="doc_id_for_send_test"
+        )
+        self.client = Client()
+        self.send_document_url = reverse('projects:send_document', kwargs={'pk': self.project.pk})
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.send_document')
+    @patch('projects.cloudsign_api.CloudSignAPIClient._get_access_token')
+    def test_post_send_document_success(self, mock_get_access_token, mock_send_document):
+        mock_get_access_token.return_value = "dummy_access_token"
+        mock_send_document.return_value = {"status": "sent"}
+
+        response = self.client.post(self.send_document_url, follow=True)
+
+        mock_send_document.assert_called_once_with(
+            document_id=self.project.cloudsign_document_id,
+            send_data={}
+        )
+        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(str(messages[0]), f"CloudSignドキュメント (ID: {self.project.cloudsign_document_id}) が正常に送信されました。")
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.send_document')
+    @patch('projects.cloudsign_api.CloudSignAPIClient._get_access_token')
+    def test_post_send_document_api_error(self, mock_get_access_token, mock_send_document):
+        mock_get_access_token.return_value = "dummy_access_token"
+        mock_send_document.side_effect = Exception("API Send Error")
+
+        response = self.client.post(self.send_document_url, follow=True)
+
+        mock_send_document.assert_called_once()
+        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertIn("CloudSignドキュメントの送信に失敗しました: API Send Error", str(messages[0]))
+
+    @patch('projects.cloudsign_api.CloudSignAPIClient.send_document')
+    @patch('projects.cloudsign_api.CloudSignAPIClient._get_access_token')
+    def test_post_send_document_no_cloudsign_document_id(self, mock_get_access_token, mock_send_document):
+        mock_get_access_token.return_value = "dummy_access_token"
+        
+        project_no_doc_id = Project.objects.create(
+            title="Project No Doc ID for Send",
+            description="Description",
+            cloudsign_document_id=""
+        )
+        send_document_url_no_doc_id = reverse('projects:send_document', kwargs={'pk': project_no_doc_id.pk})
+
+        response = self.client.post(send_document_url_no_doc_id, follow=True)
+
+        mock_send_document.assert_not_called()
+        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': project_no_doc_id.pk}))
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、ドキュメントを送信できません。")
+
+

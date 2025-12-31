@@ -132,7 +132,7 @@ class CloudSignAPIClient:
         # Pass 'data' and 'files' kwargs to the generic request method
         return self._make_authenticated_request("POST", "/documents", data=data, files=files_to_upload)
 
-    def get_document_status(self, document_id):
+    def get_document(self, document_id):
         """
         Gets the status of a document.
         """
@@ -144,3 +144,26 @@ class CloudSignAPIClient:
         `send_data` should be a dictionary, e.g., {"participants": [...]}
         """
         return self._make_authenticated_request("POST", f"/documents/{document_id}/send", json=send_data)
+
+    def add_participant(self, document_id, email, name):
+        """
+        Adds a participant to a document.
+        :param document_id: The ID of the document.
+        :param email: The email of the participant.
+        :param name: The name of the participant.
+        :return: The API response.
+        """
+        data = {
+            "email": email,
+            "name": name,
+        }
+        return self._make_authenticated_request("POST", f"/documents/{document_id}/participants", data=data)
+
+    def update_document(self, document_id, update_data):
+        """
+        Updates a document's information.
+        :param document_id: The ID of the document.
+        :param update_data: A dictionary containing the data to update (e.g., {"title": "New Title"}).
+        :return: The API response.
+        """
+        return self._make_authenticated_request("PUT", f"/documents/{document_id}", data=update_data)

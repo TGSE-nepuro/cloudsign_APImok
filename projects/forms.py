@@ -63,3 +63,17 @@ ContractFileFormSet = forms.inlineformset_factory(
     extra=1,  # Show 1 extra empty form by default
     can_delete=True
 )
+
+class ParticipantForm(forms.Form):
+    email = forms.EmailField(
+        label='参加者メールアドレス',
+        max_length=255,
+        required=True,
+        widget=forms.EmailInput(attrs={'class': 'form-control'})
+    )
+    name = forms.CharField(
+        label='参加者名',
+        max_length=255,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )

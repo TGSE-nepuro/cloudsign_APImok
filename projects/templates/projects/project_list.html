@@ -5,11 +5,20 @@
 {% block content %}
     <h1 class="mb-4">案件一覧</h1>
 
-    <!-- Search Form -->
     <div class="mb-3">
-        <form action="{% url 'projects:project_list' %}" method="get" class="d-flex">
-            <input type="text" name="search" class="form-control me-2" placeholder="タイトルまたは説明で検索..." value="{{ search_query|default:'' }}">
-            <button type="submit" class="btn btn-outline-secondary">検索</button>
+        <form action="{% url 'projects:project_list' %}" method="get" class="row g-3 align-items-center">
+            <div class="col-md-6">
+                <input type="text" name="search" class="form-control" placeholder="タイトルまたは説明で検索..." value="{{ search_query|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_from" class="form-control" value="{{ date_from|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="date_to" class="form-control" value="{{ date_to|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-secondary w-100">検索</button>
+            </div>
         </form>
     </div>
 

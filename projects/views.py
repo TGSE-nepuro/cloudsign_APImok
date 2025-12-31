@@ -23,16 +23,28 @@ class ProjectListView(ListView):
     def get_queryset(self):
         queryset = super().get_queryset().order_by('-created_at')
         search_query = self.request.GET.get('search', '')
+        date_from = self.request.GET.get('date_from', '')
+        date_to = self.request.GET.get('date_to', '')
+
         if search_query:
             queryset = queryset.filter(
                 models.Q(title__icontains=search_query) |
                 models.Q(description__icontains=search_query)
             )
+        
+        if date_from:
+            queryset = queryset.filter(due_date__gte=date_from)
+        
+        if date_to:
+            queryset = queryset.filter(due_date__lte=date_to)
+
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_query'] = self.request.GET.get('search', '')
+        context['date_from'] = self.request.GET.get('date_from', '')
+        context['date_to'] = self.request.GET.get('date_to', '')
         return context
 
 class ProjectDetailView(DetailView):

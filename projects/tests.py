@@ -1,6 +1,6 @@
 from django.test import TestCase, Client
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
 
 from projects.cloudsign_api import CloudSignAPIClient
@@ -383,51 +383,62 @@ class DocumentDownloadViewTests(TestCase):
         self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、ドキュメントをダウンロードできません。")
 
 class ProjectListViewTests(TestCase):
-    def setUp(self):
-        self.client = Client()
-        self.list_url = reverse('projects:project_list')
-        # Create 15 projects to test pagination
-        for i in range(15):
-            Project.objects.create(
-                title=f'Test Project {i}',
-                description=f'This is a description for project {i}.'
-            )
-
-    def test_pagination_displays_10_projects(self):
-        response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/project_list.html')
-        self.assertEqual(len(response.context['projects']), 10)
-        self.assertTrue(response.context['is_paginated'])
-
-    def test_pagination_second_page(self):
-        response = self.client.get(self.list_url, {'page': 2})
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/project_list.html')
-        self.assertEqual(len(response.context['projects']), 5)
-
-    def test_search_by_title(self):
-        response = self.client.get(self.list_url, {'search': 'Project 1'})
-        self.assertEqual(response.status_code, 200)
-        # Should find 'Project 1' and 'Project 10' through 'Project 14'
-        self.assertEqual(len(response.context['projects']), 6)
-        self.assertContains(response, 'Test Project 1')
-        self.assertNotContains(response, 'Test Project 2')
-
-    def test_search_by_description(self):
-        response = self.client.get(self.list_url, {'search': 'description for project 5'})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['projects']), 1)
-        self.assertContains(response, 'Test Project 5')
-
-    def test_search_no_results(self):
-        response = self.client.get(self.list_url, {'search': 'nonexistent query'})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['projects']), 0)
-        self.assertContains(response, "該当する案件がありません。")
-
-    def test_search_retains_query_in_input(self):
-        search_query = "search query"
-        response = self.client.get(self.list_url, {'search': search_query})
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f'value="{search_query}"')
+        def setUp(self):
+            self.client = Client()
+            self.list_url = reverse('projects:project_list')
+            # Create 15 projects to test pagination
+            for i in range(15):
+                Project.objects.create(
+                    title=f'Test Project {i}',
+                    description=f'This is a description for project {i}.',
+                    due_date=date(2023, 1, i + 1)
+                )
+    
+        def test_pagination_displays_10_projects(self):
+            response = self.client.get(self.list_url)
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, 'projects/project_list.html')
+            self.assertEqual(len(response.context['projects']), 10)
+            self.assertTrue(response.context['is_paginated'])
+    
+        def test_pagination_second_page(self):
+            response = self.client.get(self.list_url, {'page': 2})
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, 'projects/project_list.html')
+            self.assertEqual(len(response.context['projects']), 5)
+    
+        def test_search_by_title(self):
+            response = self.client.get(self.list_url, {'search': 'Project 1'})
+            self.assertEqual(response.status_code, 200)
+            # Should find 'Project 1' and 'Project 10' through 'Project 14'
+            self.assertEqual(len(response.context['projects']), 6)
+            self.assertContains(response, 'Test Project 1')
+            self.assertNotContains(response, 'Test Project 2')
+    
+        def test_search_by_description(self):
+            response = self.client.get(self.list_url, {'search': 'description for project 5'})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.context['projects']), 1)
+            self.assertContains(response, 'Test Project 5')
+    
+        def test_search_no_results(self):
+            response = self.client.get(self.list_url, {'search': 'nonexistent query'})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.context['projects']), 0)
+            self.assertContains(response, "該当する案件がありません。")
+    
+        def test_search_retains_query_in_input(self):
+            search_query = "search query"
+            response = self.client.get(self.list_url, {'search': search_query})
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, f'value="{search_query}"')
+    
+        def test_filter_by_due_date(self):
+            response = self.client.get(self.list_url, {'date_from': '2023-01-05', 'date_to': '2023-01-10'})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.context['projects']), 6)
+            self.assertContains(response, 'Test Project 4') # due_date=2023-01-05
+            self.assertContains(response, 'Test Project 9') # due_date=2023-01-10
+            self.assertNotContains(response, 'Test Project 3')
+            self.assertNotContains(response, 'Test Project 10')
+    

@@ -2,6 +2,7 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.urls import reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.db import models # Import models here
 from .models import Project, CloudSignConfig, ContractFile
 from .forms import CloudSignConfigForm, ProjectForm, ContractFileFormSet, ParticipantForm
 from .cloudsign_api import CloudSignAPIClient
@@ -17,6 +18,22 @@ class ProjectListView(ListView):
     model = Project
     template_name = 'projects/project_list.html'
     context_object_name = 'projects'
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset().order_by('-created_at')
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                models.Q(title__icontains=search_query) |
+                models.Q(description__icontains=search_query)
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('search', '')
+        return context
 
 class ProjectDetailView(DetailView):
     model = Project

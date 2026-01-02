@@ -1,7 +1,8 @@
 from django import forms
-from django.forms.models import BaseInlineFormSet
+from django.forms.models import BaseInlineFormSet, inlineformset_factory
 from django.core.exceptions import ValidationError
-from .models import CloudSignConfig, Project, ContractFile
+from django.utils.translation import gettext_lazy as _
+from .models import CloudSignConfig, Project, ContractFile, Participant
 
 class CloudSignConfigForm(forms.ModelForm):
     class Meta:
@@ -9,12 +10,33 @@ class CloudSignConfigForm(forms.ModelForm):
         fields = ['client_id', 'api_base_url']
 
 class ProjectForm(forms.ModelForm):
+    # Explicitly define amount as a CharField to allow comma input
+    amount = forms.CharField(
+        label=_("金額"),
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = Project
         fields = ['title', 'description', 'customer_info', 'due_date', 'amount']
         widgets = {
             'due_date': forms.DateInput(attrs={'type': 'date'}),
         }
+
+    def clean_amount(self):
+        amount_str = self.cleaned_data.get('amount')
+        if not amount_str:
+            return None
+        
+        # Remove commas
+        amount_str = str(amount_str).replace(',', '')
+        
+        try:
+            # Convert to integer
+            return int(amount_str)
+        except (ValueError, TypeError):
+            raise ValidationError(_("有効な数値を入力してください。"), code='invalid')
 
 class ContractFileForm(forms.ModelForm):
     class Meta:
@@ -64,16 +86,15 @@ ContractFileFormSet = forms.inlineformset_factory(
     can_delete=True
 )
 
-class ParticipantForm(forms.Form):
-    email = forms.EmailField(
-        label='参加者メールアドレス',
-        max_length=255,
-        required=True,
-        widget=forms.EmailInput(attrs={'class': 'form-control'})
-    )
-    name = forms.CharField(
-        label='参加者名',
-        max_length=255,
-        required=True,
-        widget=forms.TextInput(attrs={'class': 'form-control'})
-    )
+ParticipantFormSet = inlineformset_factory(
+    Project,
+    Participant,
+    fields=('name', 'email', 'order'),
+    extra=1,
+    can_delete=True,
+    widgets={
+        'name': forms.TextInput(attrs={'class': 'form-control'}),
+        'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        'order': forms.NumberInput(attrs={'class': 'form-control', 'value': 0}),
+    }
+)

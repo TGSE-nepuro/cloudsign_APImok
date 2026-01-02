@@ -136,3 +136,58 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging configuration
+LOG_DIR = BASE_DIR / 'log'
+LOG_DIR.mkdir(parents=True, exist_ok=True) # Ensure log directory exists
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'level': 'INFO', # Log INFO and above to file
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOG_DIR / 'debug.log',
+            'maxBytes': 1024*1024*5, # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'projects': { # Our custom app logger
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG', # Capture all messages from our app
+            'propagate': False,
+        },
+        'cloudsign_project': { # Our project logger
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG', # Capture all messages from our project
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+}

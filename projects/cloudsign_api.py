@@ -60,15 +60,14 @@ class CloudSignAPIClient:
         if self.access_token and self.token_expires_at and datetime.now() < self.token_expires_at:
             return self.access_token
 
-        token_url = f"{self.api_base_url}/oauth2/token"
-        headers = {"Content-Type": "application/json"}
-        json_data = {
-            "grant_type": "client_credentials",
+        token_url = f"{self.api_base_url}/token"
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = {
             "client_id": self.client_id,
         }
 
         try:
-            response = requests.post(token_url, headers=headers, json=json_data, timeout=10)
+            response = requests.post(token_url, headers=headers, data=data, timeout=10)
             response.raise_for_status()
             token_data = response.json()
             

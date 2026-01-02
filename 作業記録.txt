@@ -13,8 +13,188 @@
 *   ユーザーからの指示に基づき、Docker関連ファイルを削除しました。
     *   `docker-compose.yml` を削除しました。
     *   `Dockerfile` を削除しました。
+    *   `Dockerfile` を削除しました。
     *   `.env` を削除しました。
 
 #### 4. 仮想環境の準備
 *   `requirements.txt` の内容（`Django`, `requests`, `PyMySQL`）を確認しました。
 *   仮想環境を構築し、必要なライブラリをインストールする準備を進めます。
+
+#### 5. 仮想環境の構築
+*   `python -m venv venv` コマンドで仮想環境を構築しました。
+
+#### 6. プロジェクトファイルのクリーンアップ
+*   ファイル一覧を再確認し、`作業記録.txt`の記載に反してDocker関連ファイル(`.env`, `docker-compose.yml`, `Dockerfile`)が残存していることを確認しました。
+*   ユーザーの指示のもと、これらのファイルを削除しました。
+
+#### 7. コードベースのDocker依存設定の削除
+*   コードベースをスキャンし、`settings.py`にDocker環境を判定するロジックが残っていることを発見しました。
+*   `settings.py`を修正し、環境変数に依存した動的なデータベース設定と、ローカル設定を読み込むためのDocker判定ロジックを削除し、ローカルのMySQLに直接接続する静的な設定に変更しました。
+
+#### 8. 依存ライブラリのインストール
+*   `pip install -r requirements.txt` を実行し、仮想環境にDjango、requests, PyMySQLなどの必要なライブラリをインストールしました。
+
+#### 9. 変更内容のコミット
+*   ここまでのDocker関連の削除と設定変更を「refactor: Remove Docker dependency and configure for local MySQL」というメッセージでコミットしました。
+
+#### 10. データベース設定の適用
+*   不要になった`db.sqlite3`ファイルを削除しました。
+*   `manage.py migrate` を実行し、MySQLへのマイグレーションを試みたところ、`OperationalError: (1045, "Access denied...")` が発生しました。
+*   エラーの原因がDBの権限設定であることを特定し、ユーザーへMySQL側でのデータベース、ユーザー作成、権限付与を依頼しました。
+
+#### 11. Docker関連ファイルの最終確認と削除
+*   ファイル一覧を再確認したところ、`docker-compose.yml`が残存していることを確認しました。
+*   ユーザーの指示のもと、`docker-compose.yml`を削除しました。
+
+#### 12. MySQLデータベース・ユーザーの作成と権限付与
+*   ユーザーから提供されたrootパスワードを使用し、MySQLにログインしました。
+*   `settings.py`に記載されているデータベース名(`cloudsign_db`)、ユーザー名(`cloudsign_user`)、パスワード(`cloudsign_password`)でデータベースとユーザーを作成し、必要な権限を付与しました。
+
+#### 13. 仮想環境での依存ライブラリのインストール再試行
+*   `manage.py migrate`の実行時に`ModuleNotFoundError: No module named 'pymysql'`が発生したため、仮想環境が適切に利用されていないと判断しました。
+*   仮想環境内の`python.exe`を使用して`pip install -r requirements.txt`を再実行しました。これにより、既存の依存関係が適切に認識されていることを確認しました。
+
+#### 14. `cryptography`パッケージのインストール
+*   `manage.py migrate`の実行時に`RuntimeError: 'cryptography' package is required`エラーが発生したため、`cryptography`パッケージを仮想環境にインストールしました。
+
+#### 15. データベースマイグレーションの成功
+*   仮想環境内の`python.exe`を使用して`manage.py migrate`を再実行したところ、全てのマイグレーションが正常に適用されました。
+
+#### 16. テストデータベース作成時の権限問題の解決
+*   `python manage.py test`実行時に`Access denied for user 'cloudsign_user'@'localhost' to database 'test_cloudsign_db'`エラーが発生しました。
+*   Djangoのテストランナーがテストデータベースを自動で作成・削除できるよう、`cloudsign_user`に`CREATE`, `DROP`権限を`*.*`（全てのデータベース）に対して付与しました。
+*   その後も`ALTER command denied`、`INSERT command denied`といったエラーが段階的に発生したため、最終的にユーザーの承認を得て`cloudsign_user`に`ALL PRIVILEGES ON *.*`を付与しました。
+
+#### 17. テストデータベースのクリーンアップ
+*   テスト実行中にタイムアウトが発生し、「Can't create database 'test_cloudsign_db'; database exists」というメッセージが表示されたため、`root`ユーザーで`test_cloudsign_db`を手動で削除しました。
+
+#### 18. `CloudSignAPIClient`メソッドのTDD実装とテスト成功
+*   `cloudsign_api.py`内の`get_document_status`メソッドを`get_document`にリネームしました。
+*   `POST /documents/{documentID}/participants`用の`add_participant`メソッドを`cloudsign_api.py`に追加しました。
+*   `PUT /documents/{documentID}`用の`update_document`メソッドを`cloudsign_api.py`に追加しました。
+*   `_get_access_token`、`create_document`、`get_document`、`add_participant`、`update_document`各メソッドに対するテストケースを`projects/tests.py`に記述し、全てが正常にパスすることを確認しました。
+
+#### 19. `ContractFile`モデルのマイグレーション作成とテスト環境の整備
+*   `python manage.py test`実行時に`Table 'test_cloudsign_db.projects_contractfile' doesn't exist`エラーが発生しました。
+*   `projects/models.py`に`ContractFile`モデルが定義されているにも関わらず、対応するマイグレーションファイルが存在しないことが原因でした。
+*   `python manage.py makemigrations projects`を実行し、`projects\migrations\0004_alter_project_cloudsign_document_id_contractfile.py`を作成しました。
+*   `ProjectUpdateViewTests.setUp`内の`ContractFile`モデルを使用する際に発生した`NameError`および`FileNotFoundError`を修正するため、`projects/tests.py`に`ContractFile`のimportと`django.core.files.uploadedfile.SimpleUploadedFile`を使用したダミーファイルの作成ロジックを追加しました。
+*   `ProjectUpdateViewTests`のテスト実行時に、`ContractFileFormSet`がテストに影響を与えないように、`projects.views.ContractFileFormSet`をモック化しました。
+
+#### 20. UI統合タスクの進捗
+*   **`ProjectDetailView`のリファクタリング:** `client.get_document_status`の呼び出しを`client.get_document`に更新しました。
+*   **`ProjectUpdateView`のCloudSignドキュメント更新機能強化:** `client.update_document`を`ProjectUpdateView`に統合しました。
+*   **`ProjectUpdateView`のテストケース追加:** `ProjectUpdateView`のテストケース`test_update_document_called_on_project_update`を作成し、`client.update_document`が正しいパラメータで呼び出されることを確認しました。このテストは正常にパスしました。
+
+#### 21. `ParticipantForm`の作成中断
+*   `projects/forms.py`に`ParticipantForm`を作成する作業を開始しましたが、ユーザーからの指示により一時中断しました。
+
+#### 22. `ParticipantForm`の実装と統合 (再開)
+*   `projects/forms.py`に`ParticipantForm`を追加し、参加者のメールアドレスと名前のフィールドを定義しました。
+*   `projects/views.py`に`ParticipantCreateView`を実装し、指定されたプロジェクトのCloudSignドキュメントに宛先を追加するロジックを組み込みました。
+*   `projects/urls.py`に`ParticipantCreateView`のURLパターンを追加しました。
+*   `projects/templates/projects/participant_form.html`テンプレートを作成し、参加者追加フォームを表示するようにしました。
+*   `projects/templates/projects/project_detail.html`に、`cloudsign_document_id`が存在する場合に`ParticipantCreateView`へ遷移する「参加者を追加」ボタンを追加しました。
+*   `projects/tests.py`に`ParticipantCreateViewTests`クラスを追加し、`ParticipantCreateView`の正常系、フォームバリデーションエラー、APIエラー、`cloudsign_document_id`なしの場合のテストケースを実装し、全てパスすることを確認しました。
+
+#### 23. `ProjectDetailView`へのCloudSign参加者表示
+*   `projects/views.py`の`ProjectDetailView`において、`get_context_data`メソッド内でCloudSign APIから取得したドキュメント詳細から参加者情報を抽出し、`cloudsign_participants`としてコンテキストに追加するように修正しました。
+*   `projects/templates/projects/project_detail.html`に、`cloudsign_participants`が表示されるセクションを追加しました。
+*   `projects/tests.py`の`ProjectDetailViewTests`に`test_project_detail_view_shows_participants`テストケースを追加し、CloudSign参加者が正しく表示されることを確認しました。
+
+#### 24. ドキュメント送信機能の実装
+*   `projects/views.py`に`DocumentSendView`を実装し、指定されたプロジェクトのCloudSignドキュメントを送信するロジックを組み込みました。
+*   `projects/urls.py`に`DocumentSendView`のURLパターンを追加しました。
+*   `projects/templates/projects/project_detail.html`に、`cloudsign_document_id`が存在する場合に`DocumentSendView`へPOSTリクエストを送信する「ドキュメントを送信」ボタンを追加しました。
+*   `projects/tests.py`に`DocumentSendViewTests`クラスを追加し、`DocumentSendView`の正常系、APIエラー、`cloudsign_document_id`なしの場合のテストケースを実装し、全てパスすることを確認しました。
+
+#### 25. ドキュメントダウンロード機能の実装
+*   `projects/cloudsign_api.py`に`download_document`メソッドを追加し、CloudSign APIからドキュメントファイルをダウンロードする機能を提供しました。
+*   `projects/views.py`に`DocumentDownloadView`を実装し、ダウンロードしたファイルを`HttpResponse`として提供するロジックを組み込みました。
+*   `projects/urls.py`に`DocumentDownloadView`のURLパターンを追加しました。
+*   `projects/templates/projects/project_detail.html`に、`cloudsign_document_id`が存在する場合に`DocumentDownloadView`へGETリクエストを送信する「ドキュメントをダウンロード」ボタンを追加しました。
+*   `projects/tests.py`に`DocumentDownloadViewTests`クラスを追加し、`DocumentDownloadView`の正常系、APIエラー、`cloudsign_document_id`なしの場合のテストケースを実装し、全てパスすることを確認しました。
+
+#### 26. ビューのエラー処理の改善
+*   `projects/views.py`内のCloudSign API連携を行うすべてのビューにおいて、エラーハンドリングを強化し、`requests.exceptions.HTTPError`などを個別に捕捉するように修正しました。
+*   `projects/views.py`に`requests`モジュールをインポートしました。
+*   `projects/tests.py`内のAPIエラー関連のテスト（`test_post_add_participant_api_error`, `test_post_send_document_api_error`, `test_get_download_document_api_error`）の`assertIn`アサーションを、更新された詳細なエラーメッセージと一致するように修正しました。
+
+#### 27. プロジェクトリストのページネーション、検索、フィルタリング機能の実装
+*   `projects/views.py`の`ProjectListView`に`paginate_by = 10`を設定し、ページネーション機能を追加しました。
+*   `ProjectListView`の`get_queryset`メソッドをオーバーライドし、リクエストパラメータ`search`（タイトルと説明を対象とした部分一致検索）と`date_from`/`date_to`（`due_date`を対象とした範囲フィルタリング）に基づくフィルタリングロジックを実装しました。
+*   `projects/views.py`に`django.db.models`をインポートしました。
+*   `projects/templates/projects/project_list.html`に、検索クエリと日付フィルタリングのための入力フィールドを含む検索フォームを追加しました。また、ページネーションコントロール（次へ、前へ、最初、最後）を表示するようにテンプレートを更新しました。
+*   `projects/tests.py`の`ProjectListViewTests`クラスの`setUp`メソッドを更新し、ページネーションと日付フィルタリングのテスト用に複数の`Project`インスタンスを`due_date`と共に作成するようにしました。
+*   `ProjectListViewTests`に`test_pagination_displays_10_projects`、`test_pagination_second_page`、`test_search_by_title`、`test_search_by_description`、`test_search_no_results`、`test_search_retains_query_in_input`、`test_filter_by_due_date`の各テストケースを追加し、全ての機能が期待通りに動作することを確認しました。
+
+#### 28. CloudSign APIアクセストークン取得リクエストの修正
+*   `projects/cloudsign_api.py`内の`_get_access_token`メソッドにおいて、CloudSign APIのアクセストークンエンドポイントのURLに誤り（`/oauth2`パスの存在）があったため、`/token`に修正しました。
+*   アクセストークンリクエストの`Content-Type`ヘッダーを`application/json`から`application/x-www-form-urlencoded`に変更し、リクエストボディを`data`パラメータで送信するように修正しました。
+*   `projects/tests.py`内の`CloudSignAPIClientTests.test_get_access_token_success`テストケースを、上記の変更に合わせて`expected_url`、`expected_headers`、および`data`パラメータのアサーションを更新しました。
+
+#### 29. 金額入力の強化 (整数・カンマ区切り対応)
+*   `projects/models.py`の`Project`モデルの`amount`フィールドを`models.DecimalField`から`models.BigIntegerField`に変更し、整数のみを許容するようにしました。
+*   `projects/forms.py`を改修し、カンマ区切りの数値入力を受け付け、保存時に整数に変換するよう対応しました。
+*   `projects/forms.py`に`django.utils.translation.gettext_lazy as _`をインポートしました。
+*   モデルの変更に対応する新規マイグレーションファイル`projects/migrations/0005_alter_cloudsignconfig_options_and_more.py`を作成し、`manage.py migrate`を実行しました。
+*   `projects/tests.py`に`ProjectFormTests`クラスを追加し、`amount`フィールドへのカンマ区切り入力（正常系）と不正な文字の入力（異常系）を検証するテストケースを実装し、全てパスすることを確認しました。
+*   `projects/tests.py`の`ProjectFormTests`および`LogViewTests`に`@override_settings(LANGUAGE_CODE='ja')`デコレータを適用しました。
+
+#### 30. エラーログ画面の実装 (Issue 1)
+*   `cloudsign_project/settings.py`に`LOGGING`設定を追加し、`BASE_DIR / 'log'`ディレクトリ下の`debug.log`ファイルにログを書き出すように設定しました。
+*   `projects/views.py`に`LogView`クラスを追加し、`debug.log`ファイルの内容を読み込んでテンプレートに渡すロジックを実装しました。
+*   `projects/urls.py`に`LogView`へのURLパターンを追加しました。
+*   `cloudsign_project/templates/base.html`に「エラーログ」ページへのナビゲーションリンクを追加しました。
+*   `projects/templates/projects/log_view.html`テンプレートを作成し、ログ内容を表示するようにしました。
+*   `projects/tests.py`に`LogViewTests`クラスを追加し、`LogView`がログ内容を正しく表示すること、およびログファイルが存在しない場合の挙動をテストするケースを実装しました。
+
+#### 31. i18nテスト環境の整備 (継続中の課題)
+*   テストランナーが日本語の文字列を正しく処理できるようにするため、ロケールディレクトリ構造 (`projects/locale/ja/LC_MESSAGES`) を作成しました。
+*   `projects/tests.py`の`LogViewTests`および`ProjectFormTests`に`@override_settings(LANGUAGE_CODE='ja')`デコレータを適用し、テスト実行時に日本語ロケールが有効になるように設定しました。
+
+### 今後の課題 (ユーザー指摘事項)
+
+1.  **エラーログ画面:** エラーログをブラウザ上で確認できる専用画面を設ける。(実装中)
+2.  **送信操作の統合:** 書類の作成、宛先の設定、PDFアップロード、送信の操作を1画面に統合し、CloudSignへの送信を伴わない「下書き保存」も可能にする。
+3.  **CloudSignステータスの表示:** 案件詳細画面で現在のCloudSignステータスを確認できるようにする。（実装済みであるが、ユーザーの期待と合致しているか要確認）
+
+---
+#### 32. テストスイートの安定化 (2026年1月2日)
+*   **LogViewTestsの修正:**
+    *   `projects/tests.py`内の`LogViewTests`において、モックの引数順序の誤りや`builtins.open`への広範なパッチ適用が原因でテストが失敗する問題が発生しました。
+    *   `unittest.mock.patch`をコンテキストマネージャとして各テストメソッド内で使用し、パッチ対象を`projects.views.open`に限定することで、テストの独立性と堅牢性を確保しました。これにより、モックの意図しない漏洩やDjangoのテンプレートローダーとの競合を排除し、`LogViewTests`が期待通りにパスすることを確認しました。
+*   **API認証エラー (400 Bad Request) の解消:**
+    *   テスト実行中に頻繁に発生していた`CloudSign APIアクセストークン取得時の400 Bad Request`エラーについて、OpenAPI仕様書(`CloudSign-cloudsign-web_api-0.31.0-resolved.yaml`)を精査しました。
+    *   仕様書では`/token`エンドポイントへのリクエストボディに`client_id`のみが求められているのに対し、コードが`grant_type: "client_credentials"`を送信していることが判明しました。
+    *   `projects/cloudsign_api.py`内の`_get_access_token`メソッドから`"grant_type": "client_credentials"`パラメータを削除し、API仕様に合致させました。
+    *   この修正後、`CloudSignAPIClientTests.test_get_access_token_success`が失敗したため、テストコード内の`expected_data`も新しいAPIリクエストペイロードに合わせて更新しました。
+    *   最終的なテスト実行により、全てのテストがパスし、ログから`400 Bad Request`エラーが完全に解消されたことを確認しました。
+
+#### 33. CloudSignステータスの日本語表示 (2026年1月2日)
+*   案件詳細画面でのCloudSignステータス表示がAPIから返される数値のままでは分かりにくいという課題に対し、改善を行いました。
+*   `projects/views.py`の`ProjectDetailView.get_context_data`メソッド内に、CloudSign APIから取得する整数ステータスコードを「下書き」「先方確認中」といった日本語文字列に変換するマッピングロジックを実装しました。
+*   これにより、テンプレートの変更なしにユーザーフレンドリーなステータス表示を実現しました。
+*   `projects/tests.py`の`ProjectDetailViewTests.test_project_detail_view_shows_participants`テストケースを更新し、モックAPIレスポンスの`status`を整数値に変更し、変換後の日本語文字列がレスポンスに含まれることをアサートするよう修正しました。
+*   テスト実行により、機能が正しく実装され、既存機能への影響がないことを確認しました。
+
+#### 34. 送信操作の統合機能 - モデルとフォームの準備 (2026年1月2日)
+*   「送信操作の統合」機能の実装を開始しました。
+*   CloudSignドキュメントの宛先をローカルデータベースに保存するため、`projects/models.py`に`Participant`モデルを追加しました（`name`, `email`, `order`フィールドを持ち、`Project`モデルに外部キーで紐付け）。
+*   `python manage.py makemigrations projects`を実行し、`projects/migrations/0006_participant.py`が作成されたことを確認しました。
+*   `python manage.py migrate`を実行し、データベースに`Participant`モデルのテーブルが作成されたことを確認しました。
+*   `projects/forms.py`を更新し、`Participant`モデルを`Project`モデルに関連付ける`ParticipantFormSet`を`inlineformset_factory`を使用して作成しました。
+*   以前作成された単独の`ParticipantForm`は不要になったため削除し、`django.forms.models`からの`inlineformset_factory`のインポートを追加しました。
+
+#### 35. コードベースの安定化と送信操作統合の準備 (2026年1月2日)
+*   テスト実行時に発生した一連のエラー（`ImportError`, `NameError`, `NoReverseMatch`, `TemplateDoesNotExist`）を解決しました。
+*   `projects/models.py`の`Participant`モデルのインデントを修正しました。
+*   `projects/views.py`で不足していた`UpdateView`等のインポートを追加しました。
+*   不要になった`ParticipantCreateView`および`ProjectCreateView`（コメントアウトされていた）を`views.py`と`urls.py`から削除しました。
+*   `ProjectManageView`を案件の新規作成・更新の両方を担うように`urls.py`を修正しました。
+*   `project_detail.html`から、削除された`add_participant`へのリンクを削除しました。
+*   `base.html`にDjangoの`messages`フレームワークを描画するロジックを追加しました。
+*   不要になったテストクラス`ParticipantCreateViewTests`および`ProjectUpdateViewTests`を削除しました。
+*   `ProjectManageView`のテストクラス`ProjectManageViewTests`を新規に作成し、GETリクエスト、下書き保存、送信時のバリデーション（ファイル・宛先なし）に関するテストケースを追加しました。
+*   `ProjectManageView`の`post`メソッドを修正し、CloudSignへの送信前にファイルと宛先の存在チェックを行うようにし、エラーハンドリングを改善しました。
+*   一連の修正により、すべてのテストが正常にパスすることを確認し、コードベースを安定した状態に戻しました。

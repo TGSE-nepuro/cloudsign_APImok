@@ -1,0 +1,4 @@
+以下のフォルダのファイル、及び指示書と作業記録、gitのリポジトリを元に作業に着手してください。
+C:\Users\tgses\OneDrive\ドキュメント\LF業務\iPaaS案件\クラウドサインテスト
+"C:\Users\tgses\OneDrive\ドキュメント\LF業務\iPaaS案件\クラウドサインテスト\作業記録.txt"
+"C:\Users\tgses\OneDrive\ドキュメント\LF業務\iPaaS案件\クラウドサインテスト\指示書.txt"

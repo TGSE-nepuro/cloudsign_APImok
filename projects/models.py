@@ -22,7 +22,7 @@ class Project(models.Model):
     description = models.TextField(blank=True, null=True, verbose_name=_("案件概要"))
     customer_info = models.TextField(blank=True, null=True, help_text=_("取引先情報"), verbose_name=_("取引先情報"))
     due_date = models.DateField(blank=True, null=True, help_text=_("期日"), verbose_name=_("期日"))
-    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text=_("金額"), verbose_name=_("金額"))
+    amount = models.BigIntegerField(blank=True, null=True, help_text=_("金額"), verbose_name=_("金額"))
     # Stores the ID of the corresponding document in CloudSign, if created.
     cloudsign_document_id = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("CloudSign Document ID"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("作成日時"))
@@ -90,3 +90,22 @@ class CloudSignConfig(models.Model):
 
     def __str__(self):
         return _("CloudSign Configuration")
+
+class Participant(models.Model):
+    """
+    Represents a participant (recipient) for a CloudSign document,
+    linked to a local Project. This allows saving draft participants
+    before sending a document.
+    """
+    project = models.ForeignKey(Project, related_name='participants', on_delete=models.CASCADE, verbose_name=_("案件"))
+    name = models.CharField(max_length=100, verbose_name=_("宛先名"))
+    email = models.EmailField(verbose_name=_("メールアドレス"))
+    order = models.PositiveIntegerField(default=0, verbose_name=_("順序"))
+
+    class Meta:
+        verbose_name = _("宛先")
+        verbose_name_plural = _("宛先")
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.email}) for Project: {self.project.title}"

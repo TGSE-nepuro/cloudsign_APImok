@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if project_form.instance.pk %}案件編集{% else %}新規案件作成{% endif %}{% endblock %}
+
+{% block content %}
+    <h1>{% if project_form.instance.pk %}案件編集{% else %}新規案件作成{% endif %}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <h2>案件情報</h2>
+        {{ project_form.as_p }}
+
+        <hr>
+
+        <h2>契約書ファイル (PDFのみ、合計50MB・100ファイルまで)</h2>
+        {{ contract_file_formset.management_form }}
+        
+        {% if contract_file_formset.non_form_errors %}
+            <div class="alert alert-danger">
+                {{ contract_file_formset.non_form_errors }}
+            </div>
+        {% endif %}
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>ファイル</th>
+                    <th style="width: 10%;">削除</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file_form in contract_file_formset %}
+                    <tr>
+                        <td>
+                            {% if file_form.instance.pk and file_form.instance.file %}
+                                <p class="mb-1">現在設定されているファイル: <a href="{{ file_form.instance.file.url }}" target="_blank">{{ file_form.instance.file.name }}</a></p>
+                            {% endif %}
+                            {{ file_form.file }}
+                            {% for error in file_form.file.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                            {{ file_form.id }}
+                        </td>
+                        <td class="text-center">
+                            {% if file_form.instance.pk %}
+                                {{ file_form.DELETE }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <hr>
+        
+        <h2>宛先情報</h2>
+        {{ participant_formset.management_form }}
+
+        {% if participant_formset.non_form_errors %}
+            <div class="alert alert-danger">
+                {{ participant_formset.non_form_errors }}
+            </div>
+        {% endif %}
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>メールアドレス</th>
+                    <th>順序</th>
+                    <th style="width: 10%;">削除</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p_form in participant_formset %}
+                    <tr>
+                        <td>{{ p_form.name }}{{ p_form.id }}</td>
+                        <td>{{ p_form.email }}</td>
+                        <td>{{ p_form.order }}</td>
+                        <td class="text-center">
+                            {% if p_form.instance.pk %}
+                                {{ p_form.DELETE }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                     {% for error in p_form.name.errors %}
+                        <tr><td colspan="4" class="alert-danger">{{ error }}</td></tr>
+                    {% endfor %}
+                    {% for error in p_form.email.errors %}
+                         <tr><td colspan="4" class="alert-danger">{{ error }}</td></tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <button type="submit" name="save_draft" class="btn btn-primary">下書き保存</button>
+        <button type="submit" name="save_and_send" class="btn btn-success">保存してCloudSignへ送信</button>
+        <a href="{% if project_form.instance.pk %}{% url 'projects:project_detail' project_form.instance.pk %}{% else %}{% url 'projects:project_list' %}{% endif %}" class="btn btn-secondary">キャンセル</a>
+    </form>
+
+    <script>
+        // Add accept="application/pdf" to all file inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInputs = document.querySelectorAll('input[type="file"][name^="files"]');
+            fileInputs.forEach(function(input) {
+                input.setAttribute('accept', 'application/pdf');
+            });
+        });
+    </script>
+{% endblock %}

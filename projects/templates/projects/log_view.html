@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}エラーログ{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">アプリケーションログ</h1>
+    <div class="card">
+        <div class="card-body">
+            <pre style="white-space: pre-wrap; word-wrap: break-word;"><code>{{ log_content }}</code></pre>
+        </div>
+    </div>
+    <a href="{% url 'projects:project_list' %}" class="btn btn-secondary mt-3">案件一覧に戻る</a>
+{% endblock %}

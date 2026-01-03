@@ -6,7 +6,8 @@ import json
 
 from projects.cloudsign_api import CloudSignAPIClient
 from projects.models import CloudSignConfig, Project, ContractFile
-from django.urls import reverse
+from django.urls import reverse, resolve
+from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils.translation import gettext_lazy as _
 from .forms import ProjectForm
@@ -179,6 +180,97 @@ class CloudSignAPIClientTests(TestCase):
         self.assertEqual(call_args[1], f"https://api-sandbox.cloudsign.jp/documents/{document_id}")
 
 
+
+
+class CloudSignConfigViewTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.url = reverse('projects:cloudsign_config')
+
+    def test_get_config_page_no_config(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'projects/cloudsignconfig_form.html')
+        self.assertIn('form', response.context)
+        self.assertIsNone(response.context['form'].instance.pk)
+
+    def test_get_config_page_with_config(self):
+        CloudSignConfig.objects.create(client_id="existing_id", api_base_url="https://existing.api")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'projects/cloudsignconfig_form.html')
+        self.assertIn('form', response.context)
+        self.assertEqual(response.context['form'].instance.client_id, "existing_id")
+
+    def test_post_create_config_success(self):
+        self.assertEqual(CloudSignConfig.objects.count(), 0)
+        post_data = {'client_id': 'new_client_id', 'api_base_url': 'https://new.api'}
+        response = self.client.post(self.url, post_data, follow=True)
+        self.assertRedirects(response, self.url)
+        self.assertEqual(CloudSignConfig.objects.count(), 1)
+        config = CloudSignConfig.objects.first()
+        self.assertEqual(config.client_id, 'new_client_id')
+        messages_list = list(get_messages(response.wsgi_request))
+        self.assertEqual(len(messages_list), 1)
+        self.assertEqual(str(messages_list[0]), "CloudSign設定が正常に更新されました。")
+
+    def test_post_update_config_success(self):
+        CloudSignConfig.objects.create(client_id="old_id", api_base_url="https://old.api")
+        post_data = {'client_id': 'updated_id', 'api_base_url': 'https://updated.api'}
+        response = self.client.post(self.url, post_data, follow=True)
+        self.assertRedirects(response, self.url)
+        self.assertEqual(CloudSignConfig.objects.count(), 1)
+        config = CloudSignConfig.objects.first()
+        self.assertEqual(config.client_id, 'updated_id')
+        messages_list = list(get_messages(response.wsgi_request))
+        self.assertEqual(len(messages_list), 1)
+        self.assertEqual(str(messages_list[0]), "CloudSign設定が正常に更新されました。")
+
+    def test_post_create_config_invalid_data(self):
+        post_data = {'client_id': '', 'api_base_url': 'invalid-url'}
+        response = self.client.post(self.url, post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required.")
+        self.assertContains(response, "Enter a valid URL.")
+        self.assertEqual(CloudSignConfig.objects.count(), 0)
+
+    def test_delete_button_not_present_when_no_config(self):
+        response = self.client.get(self.url)
+        self.assertNotContains(response, reverse('projects:cloudsign_config_delete'))
+
+    def test_delete_button_present_when_config_exists(self):
+        CloudSignConfig.objects.create(client_id="test_id")
+        response = self.client.get(self.url)
+        self.assertContains(response, reverse('projects:cloudsign_config_delete'))
+
+
+
+class CloudSignConfigDeleteViewTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.config = CloudSignConfig.objects.create(client_id="test-id-to-delete")
+        self.url = reverse('projects:cloudsign_config_delete')
+        self.success_url = reverse('projects:cloudsign_config')
+
+    def test_get_delete_confirmation_page(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'projects/cloudsignconfig_confirm_delete.html')
+        self.assertContains(response, 'Are you sure you want to delete this configuration?')
+
+    def test_post_deletes_config(self):
+        self.assertEqual(CloudSignConfig.objects.count(), 1)
+        response = self.client.post(self.url, follow=True)
+        self.assertRedirects(response, self.success_url)
+        self.assertEqual(CloudSignConfig.objects.count(), 0)
+        self.assertContains(response, "CloudSign設定が正常に削除されました。")
+
+    def test_delete_view_redirects_if_no_config(self):
+        self.config.delete()
+        self.assertEqual(CloudSignConfig.objects.count(), 0)
+        response = self.client.get(self.url, follow=True)
+        self.assertRedirects(response, self.success_url)
+        self.assertContains(response, "削除する設定がありません。")
 
 
 class ProjectManageViewTests(TestCase):
@@ -477,7 +569,6 @@ class ProjectListViewTests(TestCase):
         self.assertNotContains(response, 'Test Project 3')
         self.assertNotContains(response, 'Test Project 10')
 
-@override_settings(LANGUAGE_CODE='ja')
 class ProjectFormTests(TestCase):
     def test_amount_field_with_commas(self):
         form_data = {
@@ -502,7 +593,6 @@ class ProjectFormTests(TestCase):
 
 from unittest.mock import patch, MagicMock, mock_open
 
-@override_settings(LANGUAGE_CODE='ja')
 class LogViewTests(TestCase):
     def setUp(self):
         self.client = Client()

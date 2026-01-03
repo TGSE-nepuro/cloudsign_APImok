@@ -359,6 +359,42 @@ class CloudSignConfigView(View):
         messages.error(self.request, "CloudSign設定の更新に失敗しました。入力内容を確認してください。")
         return render(request, self.template_name, {'form': form})
 
+class CloudSignConfigDeleteView(DeleteView):
+    """
+    Handles the deletion of the singleton CloudSign configuration object.
+    """
+    model = CloudSignConfig
+    template_name = 'projects/cloudsignconfig_confirm_delete.html'
+    success_url = reverse_lazy('projects:cloudsign_config')
+
+    def get_object(self, queryset=None):
+        """
+        Override get_object to fetch the single config object.
+        If it doesn't exist, redirect to the config page.
+        """
+        config = CloudSignConfig.objects.first()
+        if not config:
+            messages.info(self.request, "削除する設定がありません。")
+            return None # Will result in a 404, which is handled by the dispatch
+        return config
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Override dispatch to handle the case where get_object returns None.
+        """
+        self.object = self.get_object()
+        if self.object is None:
+            return redirect(self.success_url)
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """
+        Adds a success message before deleting the object.
+        """
+        response = super().form_valid(form)
+        messages.success(self.request, "CloudSign設定が正常に削除されました。")
+        return response
+
 
 
 class DocumentSendView(View):

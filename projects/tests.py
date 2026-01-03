@@ -355,7 +355,7 @@ class ProjectManageViewTests(TestCase):
 
         mock_api_instance.create_document.assert_called_once()
         mock_api_instance.add_participant.assert_called_once_with('new_doc_id', 'jane.doe@example.com', 'Jane Doe')
-        mock_api_instance.send_document.assert_called_once_with('new_doc_id', {})
+        mock_api_instance.send_document.assert_called_once_with('new_doc_id')
 
         messages = list(response.context['messages'])
         self.assertTrue(any("正常に送信されました" in str(m) for m in messages))

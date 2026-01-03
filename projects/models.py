@@ -100,7 +100,7 @@ class Participant(models.Model):
     project = models.ForeignKey(Project, related_name='participants', on_delete=models.CASCADE, verbose_name=_("案件"))
     name = models.CharField(max_length=100, verbose_name=_("宛先名"))
     email = models.EmailField(verbose_name=_("メールアドレス"))
-    order = models.PositiveIntegerField(default=0, verbose_name=_("順序"))
+    order = models.PositiveIntegerField(default=1, verbose_name=_("順序"))
 
     class Meta:
         verbose_name = _("宛先")

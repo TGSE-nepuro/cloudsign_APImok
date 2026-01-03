@@ -8,6 +8,10 @@ class CloudSignConfigForm(forms.ModelForm):
     class Meta:
         model = CloudSignConfig
         fields = ['client_id', 'api_base_url']
+        widgets = {
+            'client_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'api_base_url': forms.URLInput(attrs={'class': 'form-control'}),
+        }
 
 class ProjectForm(forms.ModelForm):
     # Explicitly define amount as a CharField to allow comma input
@@ -21,7 +25,10 @@ class ProjectForm(forms.ModelForm):
         model = Project
         fields = ['title', 'description', 'customer_info', 'due_date', 'amount']
         widgets = {
-            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'customer_info': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 
     def clean_amount(self):
@@ -42,6 +49,9 @@ class ContractFileForm(forms.ModelForm):
     class Meta:
         model = ContractFile
         fields = ['file']
+        widgets = {
+            'file': forms.FileInput(attrs={'class': 'form-control', 'accept': 'application/pdf'}),
+        }
 
 class BaseContractFileFormSet(BaseInlineFormSet):
     def clean(self):
@@ -95,6 +105,6 @@ ParticipantFormSet = inlineformset_factory(
     widgets={
         'name': forms.TextInput(attrs={'class': 'form-control'}),
         'email': forms.EmailInput(attrs={'class': 'form-control'}),
-        'order': forms.NumberInput(attrs={'class': 'form-control', 'value': 0}),
+        'order': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
     }
 )

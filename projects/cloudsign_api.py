@@ -164,7 +164,7 @@ class CloudSignAPIClient:
                           Can be empty if participants are already set and no other options are needed.
         :return: The API response.
         """
-        return self._make_authenticated_request("POST", f"/documents/{document_id}/send", json=send_data)
+        return self._make_authenticated_request("POST", f"/documents/{document_id}", json=send_data)
 
     def add_participant(self, document_id, email, name):
         """

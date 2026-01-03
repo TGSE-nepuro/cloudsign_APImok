@@ -148,21 +148,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     addFileButton.addEventListener('click', () => addForm(fileFormsetContainer, fileFormPrefix, fileFormTemplate));
     fileFormsetContainer.addEventListener('click', (e) => {
-        if (e.target && e.target.classList.contains('remove-form-row')) {
-            deleteForm(e.target, fileFormPrefix);
+        const removeButton = e.target.closest('.remove-form-row');
+        if (removeButton) {
+            deleteForm(removeButton, fileFormPrefix);
         }
     });
 
     // --- Participant Formset ---
-    const participantFormsetContainer = document.getElementById('participant-formset-container');
+    const participantFormsetContainer = document.getElementById('participant-formset-container');        
     const addParticipantButton = document.getElementById('add-participant-form');
     const participantFormTemplate = document.getElementById('participant-form-template');
     const participantFormPrefix = '{{ participant_formset.prefix }}';
 
     addParticipantButton.addEventListener('click', () => addForm(participantFormsetContainer, participantFormPrefix, participantFormTemplate));
     participantFormsetContainer.addEventListener('click', (e) => {
-        if (e.target && e.target.closest('.remove-form-row')) {
-             deleteForm(e.target.closest('.remove-form-row'), participantFormPrefix);
+        const removeButton = e.target.closest('.remove-form-row');
+        if (removeButton) {
+             deleteForm(removeButton, participantFormPrefix);
         }
     });
 
@@ -173,8 +175,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const newFormHtml = template.innerHTML.replace(/__prefix__/g, formIdx);
         container.insertAdjacentHTML('beforeend', newFormHtml);
-        
+
         totalFormsInput.value = formIdx + 1;
+        // Re-attach remove listeners for the new row.
+        const newRow = container.lastElementChild;
+        if (newRow.querySelector('.remove-form-row')) {
+            newRow.querySelector('.remove-form-row').addEventListener('click', () => deleteForm(newRow.querySelector('.remove-form-row'), prefix));
+        }
     }
 
     function deleteForm(button, prefix) {
@@ -188,33 +195,18 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // This is a new, unsaved form row. Just remove it from the DOM.
             formRow.remove();
-            
+
             // We also need to decrement the TOTAL_FORMS count
             const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
             let formCount = parseInt(totalFormsInput.value);
             totalFormsInput.value = formCount - 1;
 
             // Re-index subsequent forms
-            const container = document.getElementById(`${prefix}-formset-container`);
             const forms = container.querySelectorAll('.formset-row');
             for (let i = 0; i < forms.length; i++) {
                 updateElementIndex(forms[i], prefix, i);
             }
         }
-    }
-
-    function addForm(container, prefix, template) {
-        const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-        const formIdx = parseInt(totalFormsInput.value);
-        
-        const newFormHtml = template.innerHTML.replace(/__prefix__/g, formIdx);
-        container.insertAdjacentHTML('beforeend', newFormHtml);
-        
-        totalFormsInput.value = formIdx + 1;
-
-        // Re-attach remove listeners for the new row.
-        const newRow = container.lastElementChild;
-        newRow.querySelector('.remove-form-row').addEventListener('click', () => deleteForm(newRow.querySelector('.remove-form-row'), prefix));
     }
 
     function updateElementIndex(element, prefix, ndx) {
@@ -230,47 +222,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (el.htmlFor) el.htmlFor = el.htmlFor.replace(id_regex, `${prefix}-${ndx}`);
         });
     }
-
-    // --- File Formset ---
-    const fileFormsetContainer = document.getElementById('file-formset-container');
-    const addFileButton = document.getElementById('add-file-form');
-    const fileFormTemplate = document.getElementById('file-form-template');
-    const fileFormPrefix = '{{ contract_file_formset.prefix }}';
-
-    addFileButton.addEventListener('click', () => addForm(fileFormsetContainer, fileFormPrefix, fileFormTemplate));
-    fileFormsetContainer.addEventListener('click', (e) => {
-        const removeButton = e.target.closest('.remove-form-row');
-        if (removeButton) {
-            deleteForm(removeButton, fileFormPrefix);
-        }
-    });
-
-    // --- Participant Formset ---
-    const participantFormsetContainer = document.getElementById('participant-formset-container');
-    const addParticipantButton = document.getElementById('add-participant-form');
-    const participantFormTemplate = document.getElementById('participant-form-template');
-    const participantFormPrefix = '{{ participant_formset.prefix }}';
-
-    addParticipantButton.addEventListener('click', () => addForm(participantFormsetContainer, participantFormPrefix, participantFormTemplate));
-    participantFormsetContainer.addEventListener('click', (e) => {
-        const removeButton = e.target.closest('.remove-form-row');
-        if (removeButton) {
-             deleteForm(removeButton, participantFormPrefix);
-        }
-    });
-
-    // Add accept="application/pdf" to all file inputs, including dynamically added ones
-    document.body.addEventListener('input', function(e) {
-        if (e.target.matches('input[type="file"][name^="files-"]')) {
-            if (!e.target.hasAttribute('accept')) {
-                 e.target.setAttribute('accept', 'application/pdf');
-            }
-        }
-    });
-    // Trigger for initial forms
-    document.querySelectorAll('input[type="file"][name^="files-"]').forEach(input => {
-        input.setAttribute('accept', 'application/pdf');
-    });
 
 });
 </script>

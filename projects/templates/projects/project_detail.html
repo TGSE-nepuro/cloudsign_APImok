@@ -39,7 +39,7 @@
 
             <p class="card-text"><small class="text-muted">作成日時: {{ project.created_at|date:"Y/m/d H:i" }}</small></p>
             <p class="card-text"><small class="text-muted">更新日時: {{ project.updated_at|date:"Y/m/d H:i" }}</small></p>
-            <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-warning">編集</a>
+            <a href="{% url 'projects:project_manage_edit' project.pk %}" class="btn btn-warning">編集</a>
             <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-danger">削除</a>
             <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">一覧に戻る</a>
             {% if project.cloudsign_document_id %}

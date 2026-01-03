@@ -22,7 +22,7 @@
         </form>
     </div>
 
-    <a href="{% url 'projects:project_create' %}" class="btn btn-primary mb-3">新規案件作成</a>
+    <a href="{% url 'projects:project_manage_new' %}" class="btn btn-primary mb-3">新規案件作成</a>
     <div class="list-group">
         {% for project in projects %}
             <a href="{% url 'projects:project_detail' project.pk %}" class="list-group-item list-group-item-action">

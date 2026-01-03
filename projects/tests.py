@@ -184,9 +184,9 @@ class CloudSignAPIClientTests(TestCase):
 class ProjectManageViewTests(TestCase):
     def setUp(self):
         self.client = Client()
-        self.create_url = reverse('projects:project_create')
+        self.create_url = reverse('projects:project_manage_new')
         self.project = Project.objects.create(title="Existing Project")
-        self.update_url = reverse('projects:project_update', kwargs={'pk': self.project.pk})
+        self.update_url = reverse('projects:project_manage_edit', kwargs={'pk': self.project.pk})
 
     def test_get_create_view(self):
         response = self.client.get(self.create_url)

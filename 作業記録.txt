@@ -77,7 +77,7 @@
 #### 19. `ContractFile`モデルのマイグレーション作成とテスト環境の整備
 *   `python manage.py test`実行時に`Table 'test_cloudsign_db.projects_contractfile' doesn't exist`エラーが発生しました。
 *   `projects/models.py`に`ContractFile`モデルが定義されているにも関わらず、対応するマイグレーションファイルが存在しないことが原因でした。
-*   `python manage.py makemigrations projects`を実行し、`projects\migrations\0004_alter_project_cloudsign_document_id_contractfile.py`を作成しました。
+*   `python manage.py makemigrations projects`を実行し、`projects\migrations\0004_alter_project_cloudsignconfig_options_and_more.py`を作成しました。
 *   `ProjectUpdateViewTests.setUp`内の`ContractFile`モデルを使用する際に発生した`NameError`および`FileNotFoundError`を修正するため、`projects/tests.py`に`ContractFile`のimportと`django.core.files.uploadedfile.SimpleUploadedFile`を使用したダミーファイルの作成ロジックを追加しました。
 *   `ProjectUpdateViewTests`のテスト実行時に、`ContractFileFormSet`がテストに影響を与えないように、`projects.views.ContractFileFormSet`をモック化しました。
 
@@ -168,14 +168,14 @@
     *   テスト実行中に頻繁に発生していた`CloudSign APIアクセストークン取得時の400 Bad Request`エラーについて、OpenAPI仕様書(`CloudSign-cloudsign-web_api-0.31.0-resolved.yaml`)を精査しました。
     *   仕様書では`/token`エンドポイントへのリクエストボディに`client_id`のみが求められているのに対し、コードが`grant_type: "client_credentials"`を送信していることが判明しました。
     *   `projects/cloudsign_api.py`内の`_get_access_token`メソッドから`"grant_type": "client_credentials"`パラメータを削除し、API仕様に合致させました。
-    *   この修正後、`CloudSignAPIClientTests.test_get_access_token_success`が失敗したため、テストコード内の`expected_data`も新しいAPIリクエストペイロードに合わせて更新しました。
+    *   この修正後、`CloudSignAPIClientTests.test_get_access_token_success`が失敗したため、テストコード内の`expected_url`、`expected_headers`、および`data`パラメータのアサーションを更新しました。
     *   最終的なテスト実行により、全てのテストがパスし、ログから`400 Bad Request`エラーが完全に解消されたことを確認しました。
 
 #### 33. CloudSignステータスの日本語表示 (2026年1月2日)
 *   案件詳細画面でのCloudSignステータス表示がAPIから返される数値のままでは分かりにくいという課題に対し、改善を行いました。
 *   `projects/views.py`の`ProjectDetailView.get_context_data`メソッド内に、CloudSign APIから取得する整数ステータスコードを「下書き」「先方確認中」といった日本語文字列に変換するマッピングロジックを実装しました。
 *   これにより、テンプレートの変更なしにユーザーフレンドリーなステータス表示を実現しました。
-*   `projects/tests.py`の`ProjectDetailViewTests.test_project_detail_view_shows_participants`テストケースを更新し、モックAPIレスポンスの`status`を整数値に変更し、変換後の日本語文字列がレスポンスに含まれることをアサートするよう修正しました。
+*   `projects/tests.py`の`ProjectDetailViewTests`に`test_project_detail_view_shows_participants`テストケースを追加し、モックAPIレスポンスの`status`を整数値に変更し、変換後の日本語文字列がレスポンスに含まれることをアサートするよう修正しました。
 *   テスト実行により、機能が正しく実装され、既存機能への影響がないことを確認しました。
 
 #### 34. 送信操作の統合機能 - モデルとフォームの準備 (2026年1月2日)
@@ -195,6 +195,15 @@
 *   `project_detail.html`から、削除された`add_participant`へのリンクを削除しました。
 *   `base.html`にDjangoの`messages`フレームワークを描画するロジックを追加しました。
 *   不要になったテストクラス`ParticipantCreateViewTests`および`ProjectUpdateViewTests`を削除しました。
-*   `ProjectManageView`のテストクラス`ProjectManageViewTests`を新規に作成し、GETリクエスト、下書き保存、送信時のバリデーション（ファイル・宛先なし）に関するテストケースを追加しました。
+*   `ProjectManageView`のための`ProjectManageViewTests`を新規に作成し、GETリクエスト、下書き保存、送信時のバリデーション（ファイル・宛先なし）に関するテストケースを追加しました。
 *   `ProjectManageView`の`post`メソッドを修正し、CloudSignへの送信前にファイルと宛先の存在チェックを行うようにし、エラーハンドリングを改善しました。
 *   一連の修正により、すべてのテストが正常にパスすることを確認し、コードベースを安定した状態に戻しました。
+
+#### 36. 送信操作統合ロジックの実装とテストの修正 (2026年1月2日)
+*   `ProjectManageView`の`post`メソッドに「保存してCloudSignへ送信」のロジックを実装しました。これには、CloudSignドキュメントの作成/更新、宛先の設定、書類の送信が含まれます。
+*   CloudSign API呼び出し前にファイルと宛先の存在をチェックし、エラー発生時は`messages.error`でユーザーに通知するよう変更しました。
+*   `ProjectManageViewTests`に、送信ロジックのテストケース（新規作成時の送信、ファイル/宛先がない場合のエラーハンドリング）を追加しました。
+*   `assertContains`が日本語メッセージを正しく検出できない問題に対応するため、`messages`フレームワークのメッセージを直接比較するようテストコードを修正しました。
+*   その後、`assertContains`で日本語メッセージが正しく表示されるよう、再度テストコードを修正しました。
+*   最終的に、`views.py`のファイル/宛先チェックのロジックを、保存後の`project`オブジェクトの状態に依存するように簡略化することで、すべてのテストが正常にパスするようになりました。
+*   デバッグ用のコードを削除し、コードをクリーンな状態に保ちました。

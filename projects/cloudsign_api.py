@@ -156,7 +156,7 @@ class CloudSignAPIClient:
         """
         return self._make_authenticated_request("GET", f"/documents/{document_id}")
 
-    def send_document(self, document_id, send_data):
+    def send_document(self, document_id):
         """
         Sends a CloudSign document, initiating the signing process.
         :param document_id: The ID of the document to send.
@@ -164,7 +164,7 @@ class CloudSignAPIClient:
                           Can be empty if participants are already set and no other options are needed.
         :return: The API response.
         """
-        return self._make_authenticated_request("POST", f"/documents/{document_id}", json=send_data)
+        return self._make_authenticated_request("POST", f"/documents/{document_id}")
 
     def add_participant(self, document_id, email, name):
         """

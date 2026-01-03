@@ -556,7 +556,7 @@ class ProjectManageView(View):
                         client.add_participant(project.cloudsign_document_id, p.email, p.name)
                     
                     # 3. Send Document
-                    client.send_document(project.cloudsign_document_id, {})
+                    client.send_document(project.cloudsign_document_id)
                     
                     messages.success(request, f"案件「{project.title}」が保存され、CloudSignで正常に送信されました。")
 

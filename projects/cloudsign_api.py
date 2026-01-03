@@ -2,6 +2,8 @@ import requests
 import logging
 import json
 from datetime import datetime, timedelta
+import os # 追加
+import re # 追加
 
 from django.core.exceptions import ImproperlyConfigured
 from .models import CloudSignConfig
@@ -129,24 +131,19 @@ class CloudSignAPIClient:
             logger.error(f"Network error during CloudSign API request to {endpoint}: {e}")
             raise # Re-raise network errors
 
-    def create_document(self, title, files=None):
+    def create_document(self, title):
         """
-        Creates a new document in CloudSign with a given title and attached files.
-        Files are sent using multipart/form-data.
+        Creates a new document in CloudSign with a given title.
+        Files and parties are added in separate subsequent steps.
         :param title: The title of the document.
-        :param files: A list of file-like objects (e.g., SimpleUploadedFile) to upload.
-        :return: The API response containing document details.
+        :return: The API response containing document details (including document ID).
         """
-        data = {'data': json.dumps({'title': title})}
-        
-        files_to_upload = []
-        if files:
-            for f in files:
-                f.seek(0) # Ensure file pointer is at the beginning
-                # The key for the file part should be 'files' as per CloudSign API
-                files_to_upload.append(('files', (f.name, f.read(), 'application/pdf')))
-        
-        return self._make_authenticated_request("POST", "/documents", data=data, files=files_to_upload)
+        document_data = {
+            'title': title,
+            'send_to_parties': False, # Always create as draft first
+        }
+
+        return self._make_authenticated_request("POST", "/documents", data=document_data)
 
     def get_document(self, document_id):
         """
@@ -180,6 +177,78 @@ class CloudSignAPIClient:
         }
         return self._make_authenticated_request("POST", f"/documents/{document_id}/participants", data=data)
 
+    def add_file_to_document(self, document_id, file):
+        """
+        Adds a PDF file to an existing CloudSign document.
+        :param document_id: The ID of the document to add the file to.
+        :param file: A file-like object (e.g., SimpleUploadedFile) to upload.
+        :return: The API response.
+        """
+        files_to_upload = []
+        file.seek(0) # Ensure file pointer is at the beginning
+        
+        # --- Start enhanced logging for file upload ---
+        file_name = file.name
+        file_size = file.size
+        # Read a small snippet to log, then reset pointer for actual upload
+        snippet_size = 200 # Log first 200 bytes
+        file_snippet = file.read(snippet_size)
+        file.seek(0) # Reset pointer for the actual request
+        
+        logger.info(f"Preparing to upload file: name='{file_name}', size={file_size} bytes.")
+        logger.debug(f"File '{file_name}' starts with (first {snippet_size} bytes): {file_snippet[:100]}...") # Log only first 100 of snippet
+        # --- End enhanced logging ---
+
+        original_file_name = file_name # Use the already extracted file_name
+        
+        # Split base name and extension
+        base_name_without_ext, ext = os.path.splitext(os.path.basename(original_file_name))
+        
+        # Sanitize the base name: keep only ASCII alphanumeric, '-', '_', '.', and replace others with empty string
+        sanitized_base_name_list = []
+        for char in base_name_without_ext:
+            if char.isalnum() or char in '.-_':
+                sanitized_base_name_list.append(char)
+        sanitized_base_name = "".join(sanitized_base_name_list).encode('ascii', 'ignore').decode('ascii')
+
+        # Fallback if sanitization results in an empty base name
+        if not sanitized_base_name:
+            sanitized_base_name = "document_file" 
+        
+        # Ensure extension is .pdf
+        if not ext or ext.lower() != '.pdf':
+            ext = '.pdf'
+        
+        sanitized_file_name = f"{sanitized_base_name}{ext}"
+
+        logger.info(f"Original file name: '{original_file_name}', Sanitized file name for API: '{sanitized_file_name}'")
+
+        # files_to_upload は不要になる
+        # files_to_upload.append(('uploadfile', (sanitized_file_name, file.read(), 'application/pdf')))
+
+        # 'name'フィールドと'uploadfile'フィールドの両方を含むmultipartフォームのデータを構築
+        # 'name'フィールドは通常のフォームデータとして 'data' パラメータで送る
+        data_fields = {
+            'name': sanitized_file_name,
+        }
+        files_fields = {
+            'uploadfile': (sanitized_file_name, file.read(), 'application/pdf'),
+        }
+
+        # _make_authenticated_request の引数を変更
+        response_data = self._make_authenticated_request(
+            "POST", 
+            f"/documents/{document_id}/files", 
+            data=data_fields,   # 'name'フィールドを送る
+            files=files_fields  # 'uploadfile'フィールドを送る
+        )
+
+        # --- ここに新しいログを追加 ---
+        logger.debug(f"Response from add_file_to_document for doc_id={document_id}, file='{sanitized_file_name}': {response_data}")
+        # --- ここまで新しいログを追加 ---
+
+        return response_data
+
     def update_document(self, document_id, update_data):
         """
         Updates the information of a CloudSign document.
@@ -188,6 +257,43 @@ class CloudSignAPIClient:
         :return: The API response.
         """
         return self._make_authenticated_request("PUT", f"/documents/{document_id}", data=update_data)
+
+    def add_widget(self, document_id, file_id, widget_type, page, x, y, email, width=None, height=None, text=None, required=True):
+        """
+        Adds a widget (e.g., signature, seal, text) to a specific file within a CloudSign document.
+        :param document_id: The ID of the document.
+        :param file_id: The ID of the file within the document to add the widget to.
+        :param widget_type: The type of widget (e.g., 'seal', 'signature', 'text', 'date').
+        :param page: The page number (0-indexed) where the widget should be placed.
+        :param x: The X coordinate of the widget's position.
+        :param y: The Y coordinate of the widget's position.
+        :param email: The email of the participant assigned to this widget.
+        :param width: Optional width of the widget.
+        :param height: Optional height of the widget.
+        :param text: Optional text for text widgets.
+        :param required: Whether the widget is required.
+        :return: The API response.
+        """
+        payload = {
+            "type": widget_type,
+            "page": page,
+            "x": x,
+            "y": y,
+            "email": email,
+            "required": required,
+        }
+        if width is not None:
+            payload["width"] = width
+        if height is not None:
+            payload["height"] = height
+        if text is not None:
+            payload["text"] = text
+
+        return self._make_authenticated_request(
+            "POST",
+            f"/documents/{document_id}/files/{file_id}/widgets",
+            json=payload # Send as JSON body
+        )
 
     def download_document(self, document_id):
         """

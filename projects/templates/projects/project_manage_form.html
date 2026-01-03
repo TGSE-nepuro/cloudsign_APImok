@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fileFormsetContainer.addEventListener('click', (e) => {
         const removeButton = e.target.closest('.remove-form-row');
         if (removeButton) {
-            deleteForm(removeButton, fileFormPrefix);
+            deleteForm(removeButton, fileFormPrefix, fileFormsetContainer);
         }
     });
 
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
     participantFormsetContainer.addEventListener('click', (e) => {
         const removeButton = e.target.closest('.remove-form-row');
         if (removeButton) {
-             deleteForm(removeButton, participantFormPrefix);
+             deleteForm(removeButton, participantFormPrefix, participantFormsetContainer);
         }
     });
 
@@ -180,13 +180,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         totalFormsInput.value = formIdx + 1;
         // Re-attach remove listeners for the new row.
-        const newRow = container.lastElementChild;
-        if (newRow.querySelector('.remove-form-row')) {
-            newRow.querySelector('.remove-form-row').addEventListener('click', () => deleteForm(newRow.querySelector('.remove-form-row'), prefix));
-        }
+        // The event listener is attached to the container, so it will catch clicks on new rows.
     }
 
-    function deleteForm(button, prefix) {
+    function deleteForm(button, prefix, container) {
         const formRow = button.closest('.formset-row');
         const deleteInput = formRow.querySelector('input[type="checkbox"][name$="-DELETE"]');
 

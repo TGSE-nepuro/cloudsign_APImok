@@ -7,6 +7,7 @@ from django.db import models
 from .models import Project, CloudSignConfig, ContractFile, Participant
 from .forms import CloudSignConfigForm, ProjectForm, ContractFileFormSet, ParticipantFormSet
 from .cloudsign_api import CloudSignAPIClient
+import re
 import logging
 import requests
 import os
@@ -412,10 +413,7 @@ class DocumentSendView(View):
             client = CloudSignAPIClient()
             # The API might require a list of participants to send, but for now we assume
             # it sends to all existing participants.
-            client.send_document(
-                document_id=project.cloudsign_document_id,
-                send_data={}
-            )
+            client.send_document(document_id=project.cloudsign_document_id)
             messages.success(request, f"CloudSignドキュメント (ID: {project.cloudsign_document_id}) が正常に送信されました。")
         except requests.exceptions.HTTPError as e:
             error_message = f"CloudSign APIエラー ({e.response.status_code}): {e.response.text}"
@@ -470,17 +468,108 @@ class DocumentDownloadView(View):
 
 class LogView(View):
     """
-    Displays the content of the debug log file.
+    Displays the content of the debug log file in a structured, user-friendly format.
     """
     template_name = 'projects/log_view.html'
+    log_level_map = {
+        'INFO': '情報',
+        'WARNING': '警告',
+        'ERROR': 'エラー',
+        'CRITICAL': '緊急',
+        'DEBUG': 'デバッグ',
+    }
+    
+    # Reverse map for filtering
+    reverse_log_level_map = {v: k for k, v in log_level_map.items()}
 
     def get(self, request, *args, **kwargs):
         log_file_path = settings.LOG_DIR / 'debug.log'
-        log_content = "ログファイルが存在しません。"
-        if os.path.exists(log_file_path):
-            with open(log_file_path, 'r', encoding='utf-8') as f:
-                log_content = f.read()
-        return render(request, self.template_name, {'log_content': log_content})
+        all_log_entries = []
+        log_file_exists = os.path.exists(log_file_path) # Define here unconditionally
+
+        if log_file_exists: # Now use the variable
+            with open(log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                log_pattern = re.compile(r'^(?P<level>[A-Z]+)\s(?P<datetime>\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2},\d{3})\s(?P<module>[\w.]+)(?:\s(?P<pid>\d+))?(?:\s(?P<tid>\d+))?\s(?P<message>.*)$')
+                
+                buffer = []
+                for line in f:
+                    if log_pattern.match(line) and buffer:
+                        self._process_log_buffer(buffer, all_log_entries, log_pattern)
+                        buffer = []
+                    buffer.append(line)
+                if buffer:
+                    self._process_log_buffer(buffer, all_log_entries, log_pattern)
+
+        # Apply filters
+        filtered_log_entries = all_log_entries
+        
+        level_filter_jp = request.GET.get('level')
+        search_query = request.GET.get('search', '').lower()
+
+        if level_filter_jp:
+            level_filter_en = self.reverse_log_level_map.get(level_filter_jp, level_filter_jp)
+            filtered_log_entries = [
+                entry for entry in filtered_log_entries 
+                if self.reverse_log_level_map.get(entry['level']) == level_filter_en
+            ]
+
+        if search_query:
+            filtered_log_entries = [
+                entry for entry in filtered_log_entries 
+                if search_query in entry['message'].lower() or search_query in entry['module'].lower()
+            ]
+
+        # Add Bootstrap specific class for styling based on level
+        for entry in filtered_log_entries:
+            if entry['level'] == 'エラー' or entry['level'] == '緊急':
+                entry['level_class'] = 'table-danger'
+            elif entry['level'] == '警告':
+                entry['level_class'] = 'table-warning'
+            elif entry['level'] == '情報':
+                entry['level_class'] = 'table-info'
+            elif entry['level'] == 'デバッグ':
+                entry['level_class'] = 'table-secondary'
+            else:
+                entry['level_class'] = ''
+
+        # Reverse the order to show newest logs first
+        filtered_log_entries.reverse()
+        
+        return render(request, self.template_name, {
+            'log_entries': filtered_log_entries,
+            'log_file_exists': log_file_exists,
+            'request_get': request.GET, # Added for filter form persistence
+            'settings': settings, # Pass settings for log file path display
+        })
+
+    def _process_log_buffer(self, buffer, log_entries, log_pattern):
+        if not buffer:
+            return
+
+        first_line = buffer[0]
+        match = log_pattern.match(first_line)
+        if match:
+            data = match.groupdict()
+            message = data['message'].strip()
+            # Append subsequent lines to the message
+            for extra_line in buffer[1:]:
+                message += '\n' + extra_line.strip()
+
+            log_entries.append({
+                'level': self.log_level_map.get(data['level'], data['level']), # Map to Japanese
+                'datetime': data['datetime'],
+                'module': data['module'],
+                'message': message,
+            })
+        else:
+            # If the first line doesn't match the pattern (e.g., file started with partial traceback),
+            # add it as a raw message.
+            log_entries.append({
+                'level': '不明',
+                'datetime': '',
+                'module': '',
+                'message': "".join(buffer).strip(),
+            })
 
 
 # --- New Unified Project Manage View ---
@@ -524,6 +613,13 @@ class ProjectManageView(View):
             project = project_form.save()
             contract_file_formset.instance = project
             contract_file_formset.save()
+
+            # --- ここに新しいログを追加 ---
+            logger.debug(f"After contract_file_formset.save(): project.files.count()={project.files.count()}")
+            for cf in project.files.all():
+                logger.debug(f"  - ContractFile ID: {cf.id}, Name: {cf.file.name}, Size: {cf.file.size if cf.file else 'None'}")
+            # --- ここまで新しいログを追加 ---
+
             participant_formset.instance = project
             participant_formset.save()
 
@@ -538,25 +634,76 @@ class ProjectManageView(View):
                     return render(request, self.template_name, context)
 
                 try:
-                    client = CloudSignAPIClient()
-                    all_files = [f.file for f in project.files.all()]
+                    client = CloudSignAPIClient() # Step 1: Get Access Token (implicitly handled)
                     
-                    # 1. Create or Update Document
-                    if not project.cloudsign_document_id:
-                        doc = client.create_document(project.title, files=all_files)
+                    # Store existing CloudSign document ID if any
+                    current_cloudsign_document_id = project.cloudsign_document_id
+
+                    # Step 2: 書類の作成 (Create Document)
+                    if not current_cloudsign_document_id:
+                        # Call create_document with only title, as modified in CloudSignAPIClient
+                        doc = client.create_document(project.title)
                         project.cloudsign_document_id = doc['id']
                         project.save()
                         messages.info(request, f"CloudSignドキュメント (ID: {project.cloudsign_document_id}) が作成されました。")
+                        current_cloudsign_document_id = project.cloudsign_document_id
                     else:
-                        client.update_document(project.cloudsign_document_id, {'title': project.title})
-
-                    # 2. Add Participants
-                    participants = project.participants.all()
-                    for p in participants:
-                        client.add_participant(project.cloudsign_document_id, p.email, p.name)
+                        # If document already exists, just update title. No files/parties in this call now.
+                        client.update_document(current_cloudsign_document_id, {'title': project.title})
                     
-                    # 3. Send Document
-                    client.send_document(project.cloudsign_document_id)
+                    # After document creation/update, ensure document_id exists
+                    if not current_cloudsign_document_id:
+                        raise Exception("CloudSignドキュメントIDが取得できませんでした。")
+
+                    # Step 3: 書類への宛先の追加 (Add Recipient to Document)
+                    # Fetch existing participants from CloudSign to avoid re-adding
+                    existing_cloudsign_participants_emails = set()
+                    cloudsign_document_details = None
+                    try:
+                        cloudsign_document_details = client.get_document(current_cloudsign_document_id)
+                        for cs_participant in cloudsign_document_details.get('participants', []):
+                            existing_cloudsign_participants_emails.add(cs_participant.get('email'))
+                    except requests.exceptions.HTTPError as e:
+                        logger.warning(f"CloudSignドキュメント {current_cloudsign_document_id} の既存の参加者の取得に失敗しました: {e.response.text}")
+                    except Exception as e:
+                        logger.warning(f"既存のCloudSign参加者の取得中に予期せぬエラーが発生しました: {e}")
+
+                    participants_to_add_count = 0
+                    for p in project.participants.all(): # Iterate through local participants
+                        if p.email not in existing_cloudsign_participants_emails:
+                            client.add_participant(current_cloudsign_document_id, p.email, p.name)
+                            participants_to_add_count += 1
+                        else:
+                            logger.info(f"Participant {p.email} already exists in CloudSign document {current_cloudsign_document_id}, skipping.")
+                    
+                    if participants_to_add_count > 0:
+                        messages.info(request, f"{participants_to_add_count}件の宛先がCloudSignドキュメントに追加されました。")
+
+                    # Step 4: 書類へのPDFの追加 (Add PDF to Document)
+                    # Fetch existing files on CloudSign to avoid re-uploading them.
+                    existing_cloudsign_files_names = set()
+                    # We need to re-fetch document details or ensure cloudsign_document_details is up-to-date
+                    # For safety, let's re-fetch if we didn't get it or if it's stale after participant adds
+                    cloudsign_document_details_after_adds = client.get_document(current_cloudsign_document_id)
+                    for cs_file in cloudsign_document_details_after_adds.get('files', []):
+                        existing_cloudsign_files_names.add(cs_file.get('name'))
+
+                    files_to_add_count = 0
+                    for local_file in project.files.all(): # Iterate through local files
+                        if local_file.file.name not in existing_cloudsign_files_names:
+                            client.add_file_to_document(current_cloudsign_document_id, local_file.file)
+                            files_to_add_count += 1
+                        else:
+                            logger.info(f"File {local_file.file.name} already exists in CloudSign document {current_cloudsign_document_id}, skipping.")
+
+                    if files_to_add_count > 0:
+                        messages.info(request, f"{files_to_add_count}件のファイルがCloudSignドキュメントに追加されました。")
+                    elif not project.files.exists() and not files_to_add_count:
+                        # This should have been caught by the initial check, but as a fallback
+                        raise Exception("CloudSignに送信するには、少なくとも1つのファイルが必要です。")
+
+                    # Step 5: 書類の送信 (Send Document)
+                    client.send_document(current_cloudsign_document_id)
                     
                     messages.success(request, f"案件「{project.title}」が保存され、CloudSignで正常に送信されました。")
 

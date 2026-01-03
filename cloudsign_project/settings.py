@@ -156,12 +156,12 @@ LOGGING = {
     },
     'handlers': {
         'console': {
-            'level': 'INFO',
+            'level': 'DEBUG', # Changed to DEBUG
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
         'file': {
-            'level': 'INFO', # Log INFO and above to file
+            'level': 'DEBUG', # Changed to DEBUG
             'class': 'logging.handlers.RotatingFileHandler',
             'filename': LOG_DIR / 'debug.log',
             'maxBytes': 1024*1024*5, # 5 MB
@@ -180,14 +180,19 @@ LOGGING = {
             'level': 'DEBUG', # Capture all messages from our app
             'propagate': False,
         },
+        'cloudsign_api': { # Add specific logger for cloudsign_api
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
         'cloudsign_project': { # Our project logger
             'handlers': ['console', 'file'],
-            'level': 'DEBUG', # Capture all messages from our project
+            'level': 'DEBUG', # Already DEBUG, good.
             'propagate': False,
         },
     },
     'root': {
         'handlers': ['console', 'file'],
-        'level': 'INFO',
+        'level': 'DEBUG', # Changed to DEBUG
     },
 }

@@ -23,3 +23,6 @@ cloudsign_project/settings_local.py # Exclude local settings
 # OS
 .DS_Store
 Thumbs.db
+
+# Media files
+media/

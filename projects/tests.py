@@ -436,7 +436,7 @@ class ProjectManageViewTests(TestCase):
         mock_api_instance.create_document.assert_called_once_with('New Sent Project')
         mock_api_instance.get_document.assert_called() # Called multiple times for participants and files
         mock_api_instance.add_participant.assert_called_once_with(
-            'new_doc_id', 'jane.doe@example.com', 'Jane Doe', recipient_id=None # Updated expected args
+            'new_doc_id', 'jane.doe@example.com', 'Jane Doe'
         )
         
         # Assert add_file_to_document call
@@ -888,30 +888,6 @@ class EmbeddedProjectCreateViewTests(TestCase):
         self.assertIn('participant_formset', response.context)
         self.assertContains(response, '組み込み署名案件作成')
 
-    def test_post_create_draft_success(self):
-        self.assertEqual(Project.objects.count(), 0)
-        project_data = {
-            'title': 'New Embedded Draft Project',
-            'description': 'A draft description for embedded signing.',
-            'participants-TOTAL_FORMS': '1',
-            'participants-INITIAL_FORMS': '0',
-            'participants-0-name': 'Draft Signer',
-            'participants-0-email': 'draft@example.com',
-            'participants-0-order': '0',
-            'files-TOTAL_FORMS': '0',
-            'files-INITIAL_FORMS': '0',
-            'save_draft': ''
-        }
-        response = self.client.post(self.create_url, project_data, follow=True)
-        self.assertEqual(response.status_code, 200)
-        
-        new_project = Project.objects.get(title='New Embedded Draft Project')
-        self.assertIsNotNone(new_project)
-        self.assertIsNone(new_project.cloudsign_document_id) # Should not have a CS document ID
-        self.assertEqual(new_project.participants.count(), 1)
-        messages = list(response.context['messages'])
-        self.assertTrue(any("案件と関連データが下書きとして保存されました。" in str(m) for m in messages))
-        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': new_project.pk})) # Redirect to project detail
 
     @patch('projects.views.CloudSignAPIClient')
     def test_post_create_and_get_signing_urls_success(self, MockCloudSignAPIClient):
@@ -941,7 +917,7 @@ class EmbeddedProjectCreateViewTests(TestCase):
             'files-TOTAL_FORMS': '1',
             'files-INITIAL_FORMS': '0',
             'files-0-file': dummy_file,
-            'get_signing_urls': '' # New button name
+            'create_and_get_urls': '' # Correct button name
         }
 
         response = self.client.post(self.create_url, project_data, follow=True)

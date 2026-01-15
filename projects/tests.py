@@ -914,9 +914,13 @@ class EmbeddedProjectCreateViewTests(TestCase):
             'participants-0-name': 'Signer One',
             'participants-0-email': 'signer1@example.com',
             'participants-0-order': '0',
+            'participants-0-is_embedded_signer': 'on', # Mark as embedded signer
+            'participants-0-tel': '09011112222', # Add tel
             'participants-1-name': 'Signer Two',
             'participants-1-email': 'signer2@example.com',
             'participants-1-order': '1',
+            'participants-1-is_embedded_signer': 'on', # Mark as embedded signer
+            'participants-1-tel': '09033334444', # Add tel
             'files-TOTAL_FORMS': '1',
             'files-INITIAL_FORMS': '0',
             'files-0-file': dummy_file,
@@ -942,6 +946,8 @@ class EmbeddedProjectCreateViewTests(TestCase):
         self.assertEqual(context_signing_urls[0]['url'], 'https://embedded.cloudsign.jp/signer1')
         self.assertEqual(context_signing_urls[1]['name'], 'Signer Two')
         self.assertEqual(context_signing_urls[1]['url'], 'https://embedded.cloudsign.jp/signer2')
+
+
 
         messages_list = list(get_messages(response.wsgi_request))
         self.assertTrue(any("案件が作成され、組み込み署名URLが生成されました。" in str(m) for m in messages_list))

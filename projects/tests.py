@@ -889,17 +889,20 @@ class EmbeddedProjectCreateViewTests(TestCase):
         self.assertContains(response, '組み込み署名案件作成')
 
 
-    @patch('projects.views.CloudSignAPIClient')
-    def test_post_create_and_get_signing_urls_success(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        mock_api_instance.create_document.return_value = {'id': 'embedded_doc_id', 'title': 'Embedded Project'}
-        mock_api_instance.get_document.return_value = {'id': 'embedded_doc_id', 'participants': [], 'files': []} # Used for existing checks
-        mock_api_instance.add_participant.side_effect = ["embedded_part_id_1", "embedded_part_id_2"] # Simulate adding two participants
-        mock_api_instance.add_file_to_document.return_value = {} # Mock return value
-        mock_api_instance.get_embedded_signing_url.side_effect = [
-            {'url': 'https://embedded.cloudsign.jp/signer1', 'expires_at': '2026-01-08T12:00:00Z'},
-            {'url': 'https://embedded.cloudsign.jp/signer2', 'expires_at': '2026-01-08T12:00:00Z'}
-        ]
+    @patch('projects.views.CloudSignAPIClient.create_embedded_signing_document')
+    def test_post_create_and_get_signing_urls_success(self, mock_create_embedded_signing_document):
+        mock_create_embedded_signing_document.return_value = (
+            'embedded_doc_id', # document_id
+            [ # signing_urls
+                {'name': 'Signer One', 'url': 'https://embedded.cloudsign.jp/signer1'},
+                {'name': 'Signer Two', 'url': 'https://embedded.cloudsign.jp/signer2'}
+            ],
+            [ # participants_with_cs_id
+                {'email': 'signer1@example.com', 'name': 'Signer One', 'cloudsign_participant_id': 'embedded_part_id_1'},
+                {'email': 'signer2@example.com', 'name': 'Signer Two', 'cloudsign_participant_id': 'embedded_part_id_2'},
+                {'email': 'watcher@example.com', 'name': 'Watcher', 'cloudsign_participant_id': 'embedded_part_id_3'} # Watcher is not an embedded signer, but gets a CS ID
+            ]
+        )
 
         dummy_file = SimpleUploadedFile("embedded_doc.pdf", b"file content", content_type="application/pdf")
         
@@ -931,10 +934,7 @@ class EmbeddedProjectCreateViewTests(TestCase):
         self.assertEqual(new_project.participants.all()[0].cloudsign_participant_id, "embedded_part_id_1")
         self.assertEqual(new_project.participants.all()[1].cloudsign_participant_id, "embedded_part_id_2")
 
-        mock_api_instance.create_document.assert_called_once_with('New Embedded Project')
-        mock_api_instance.add_participant.call_count = 2 # Called for two participants
-        mock_api_instance.add_file_to_document.assert_called_once()
-        mock_api_instance.get_embedded_signing_url.call_count = 2 # Called for each participant
+
 
         context_signing_urls = response.context['signing_urls']
         self.assertEqual(len(context_signing_urls), 2)

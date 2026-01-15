@@ -135,8 +135,17 @@
     
     <hr class="my-4">
 
+    {% if project.cloudsign_document_id %}
+    <div class="alert alert-info" role="alert">
+        現在のCloudSignステータス: <strong>{{ cloudsign_status_text|default:"N/A" }}</strong>
+        {% if is_document_sent %}
+            <br>この案件は既に送信済みか処理中のため、再送信できません。
+        {% endif %}
+    </div>
+    {% endif %}
+
     <button type="submit" name="save_draft" class="btn btn-primary">下書き保存</button>
-    <button type="submit" name="save_and_send" class="btn btn-success">保存してCloudSignへ送信</button>
+    <button type="submit" name="save_and_send" class="btn btn-success" {% if is_document_sent %}disabled{% endif %}>保存してCloudSignへ送信</button>
     <a href="{% if project_form.instance.pk %}{% url 'projects:project_detail' project_form.instance.pk %}{% else %}{% url 'projects:project_list' %}{% endif %}" class="btn btn-secondary">キャンセル</a>
 </form>
 
@@ -220,6 +229,51 @@ document.addEventListener('DOMContentLoaded', function() {
             if (el.name) el.name = el.name.replace(name_regex, `${prefix}-${ndx}`);
             if (el.htmlFor) el.htmlFor = el.htmlFor.replace(id_regex, `${prefix}-${ndx}`);
         });
+    }
+
+    // --- Amount Input Formatting ---
+    const amountInput = document.getElementById('id_amount');
+    if (amountInput) {
+        // Format on initial load
+        amountInput.value = formatNumberWithCommas(amountInput.value);
+
+        amountInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/,/g, ''); // Remove existing commas
+            const selectionStart = e.target.selectionStart;
+            const selectionEnd = e.target.selectionEnd;
+
+            // Store original cursor position relative to commas
+            const originalLength = e.target.value.length;
+            const newLength = formatNumberWithCommas(value).length;
+            const numCommasBefore = (e.target.value.slice(0, selectionStart).match(/,/g) || []).length;
+            
+            e.target.value = formatNumberWithCommas(value);
+
+            // Adjust cursor position
+            let newCursorPosition = selectionStart + (newLength - originalLength);
+            // This is a simplified adjustment, may need more complex logic for perfect cursor preservation
+            e.target.setSelectionRange(newCursorPosition, newCursorPosition);
+        });
+
+        // On form submission, remove commas from the amount input
+        amountInput.closest('form').addEventListener('submit', function() {
+            amountInput.value = amountInput.value.replace(/,/g, '');
+        });
+    }
+
+    function formatNumberWithCommas(numberString) {
+        if (!numberString) return '';
+        // Ensure it's a string and handle non-numeric input gracefully
+        let num = String(numberString).replace(/[^0-9.]/g, ''); 
+        if (num === '') return '';
+
+        const parts = num.split('.');
+        const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        
+        if (parts.length > 1) {
+            return integerPart + '.' + parts[1];
+        }
+        return integerPart;
     }
 
 });

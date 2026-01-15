@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}新規組み込み署名案件作成{% endblock %}
+
+{% block content %}
+<style>
+    .formset-row {
+        border-bottom: 1px solid #eee;
+        padding-top: 15px;
+        padding-bottom: 15px;
+    }
+    .formset-row:last-child {
+        border-bottom: none;
+    }
+</style>
+
+<h1>{{ title }}</h1>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <h2>案件情報</h2>
+    <div class="mb-3">
+        <label for="{{ project_form.title.id_for_label }}" class="form-label">{{ project_form.title.label }}</label>
+        {{ project_form.title }}
+        {% for error in project_form.title.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="mb-3">
+        <label for="{{ project_form.description.id_for_label }}" class="form-label">{{ project_form.description.label }}</label>
+        {{ project_form.description }}
+        {% for error in project_form.description.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="mb-3">
+        <label for="{{ project_form.customer_info.id_for_label }}" class="form-label">{{ project_form.customer_info.label }}</label>
+        {{ project_form.customer_info }}
+        {% for error in project_form.customer_info.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label for="{{ project_form.due_date.id_for_label }}" class="form-label">{{ project_form.due_date.label }}</label>
+            {{ project_form.due_date }}
+            {% for error in project_form.due_date.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="{{ project_form.amount.id_for_label }}" class="form-label">{{ project_form.amount.label }}</label>
+            {{ project_form.amount }}
+            {% for error in project_form.amount.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+    </div>
+    {% for error in project_form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+
+    <hr>
+
+    <h2>契約書ファイル (PDFのみ)</h2>
+    {{ contract_file_formset.management_form }}
+    {% if contract_file_formset.non_form_errors %}<div class="alert alert-danger">{{ contract_file_formset.non_form_errors }}</div>{% endif %}
+
+    <div id="file-formset-container">
+        {% for file_form in contract_file_formset %}
+            <div class="row align-items-center formset-row file-form">
+                <div class="col-md-11">
+                    {{ file_form.id }}
+                    {{ file_form.file }}
+                    {% for error in file_form.file.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-1 text-center">
+                    <button type="button" class="btn btn-sm btn-danger remove-form-row"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    <button type="button" id="add-file-form" class="btn btn-sm btn-secondary mt-2"><i class="fas fa-plus"></i> ファイルを追加</button>
+
+    <template id="file-form-template">
+        <div class="row align-items-center formset-row file-form">
+            <div class="col-md-11">
+                {{ contract_file_formset.empty_form.id }}
+                {{ contract_file_formset.empty_form.file }}
+            </div>
+            <div class="col-md-1 text-center">
+                <button type="button" class="btn btn-sm btn-danger remove-form-row"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    </template>
+
+    <hr class="mt-4">
+
+    <h2>宛先情報</h2>
+    {{ participant_formset.management_form }}
+    {% if participant_formset.non_form_errors %}<div class="alert alert-danger">{{ participant_formset.non_form_errors }}</div>{% endif %}
+
+    <div id="participant-formset-container">
+        {% for p_form in participant_formset %}
+        <div class="row align-items-start formset-row participant-form gx-2">
+            <div class="col-md-3">{{ p_form.name.label_tag }} {{ p_form.name }} {% for error in p_form.name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-3">{{ p_form.email.label_tag }} {{ p_form.email }} {% for error in p_form.email.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-2">{{ p_form.tel.label_tag }} {{ p_form.tel }} {% for error in p_form.tel.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-1">{{ p_form.order.label_tag }} {{ p_form.order }} {% for error in p_form.order.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-2 d-flex align-items-center pt-3">
+                <div class="form-check">
+                    {{ p_form.is_embedded_signer }}
+                    <label for="{{ p_form.is_embedded_signer.id_for_label }}" class="form-check-label">{{ p_form.is_embedded_signer.label }}</label>
+                    {% for error in p_form.is_embedded_signer.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+            <div class="col-md-1 text-center pt-3">
+                <button type="button" class="btn btn-sm btn-danger remove-form-row"><i class="fas fa-trash"></i></button>
+            </div>
+            {% for error in p_form.non_field_errors %}<div class="col-12"><div class="alert alert-danger">{{ error }}</div></div>{% endfor %}
+            {{ p_form.id }}
+        </div>
+        {% endfor %}
+    </div>
+    <button type="button" id="add-participant-form" class="btn btn-sm btn-secondary mt-2"><i class="fas fa-user-plus"></i> 宛先を追加</button>
+
+    <template id="participant-form-template">
+        <div class="row align-items-start formset-row participant-form gx-2">
+            <div class="col-md-3">{{ participant_formset.empty_form.name.label_tag }} {{ participant_formset.empty_form.name }}</div>
+            <div class="col-md-3">{{ participant_formset.empty_form.email.label_tag }} {{ participant_formset.empty_form.email }}</div>
+            <div class="col-md-2">{{ participant_formset.empty_form.tel.label_tag }} {{ participant_formset.empty_form.tel }}</div>
+            <div class="col-md-1">{{ participant_formset.empty_form.order.label_tag }} {{ participant_formset.empty_form.order }}</div>
+            <div class="col-md-2 d-flex align-items-center pt-3">
+                <div class="form-check">
+                    {{ participant_formset.empty_form.is_embedded_signer }}
+                    <label for="{{ participant_formset.empty_form.is_embedded_signer.id_for_label }}" class="form-check-label">{{ participant_formset.empty_form.is_embedded_signer.label }}</label>
+                </div>
+            </div>
+            <div class="col-md-1 text-center pt-3">
+                <button type="button" class="btn btn-sm btn-danger remove-form-row"><i class="fas fa-trash"></i></button>
+            </div>
+            {{ participant_formset.empty_form.id }}
+        </div>
+    </template>
+    
+    <hr class="my-4">
+
+    <button type="submit" name="create_and_get_urls" class="btn btn-success">URLを取得して作成</button>
+    <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">キャンセル</a>
+</form>
+
+<script>
+// Using the same formset management script as project_manage_form.html
+// Ensure prefixes match the view context
+document.addEventListener('DOMContentLoaded', function() {
+    function setupFormset(containerId, addButtonId, templateId, prefix) {
+        const container = document.getElementById(containerId);
+        const addButton = document.getElementById(addButtonId);
+        const template = document.getElementById(templateId);
+
+        if (!container || !addButton || !template) return;
+
+        const totalFormsInput = document.querySelector(`input[name="${prefix}-TOTAL_FORMS"]`);
+
+        addButton.addEventListener('click', () => {
+            const formIdx = parseInt(totalFormsInput.value);
+            const newFormHtml = template.innerHTML.replace(/__prefix__/g, formIdx);
+            container.insertAdjacentHTML('beforeend', newFormHtml);
+            totalFormsInput.value = formIdx + 1;
+        });
+
+        container.addEventListener('click', (e) => {
+            const removeButton = e.target.closest('.remove-form-row');
+            if (removeButton) {
+                const formRow = removeButton.closest('.formset-row');
+                formRow.remove();
+                
+                // Re-index all forms to ensure continuity
+                const forms = container.querySelectorAll('.formset-row');
+                totalFormsInput.value = forms.length;
+                forms.forEach((form, index) => {
+                    updateElementIndex(form, prefix, index);
+                });
+            }
+        });
+    }
+
+    function updateElementIndex(el, prefix, ndx) {
+        const id_regex = new RegExp(`(${prefix}-(\d+|__prefix__))`);
+        const name_regex = new RegExp(`(${prefix}-(\d+|__prefix__))`);
+        
+        el.querySelectorAll('*').forEach(function(node) {
+            if (node.id) node.id = node.id.replace(id_regex, `${prefix}-${ndx}`);
+            if (node.name) node.name = node.name.replace(name_regex, `${prefix}-${ndx}`);
+            if (node.htmlFor) node.htmlFor = node.htmlFor.replace(id_regex, `${prefix}-${ndx}`);
+        });
+    }
+
+    setupFormset('file-formset-container', 'add-file-form', 'file-form-template', '{{ contract_file_formset.prefix }}');
+    setupFormset('participant-formset-container', 'add-participant-form', 'participant-form-template', '{{ participant_formset.prefix }}');
+});
+</script>
+{% endblock %}

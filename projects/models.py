@@ -101,6 +101,12 @@ class Participant(models.Model):
     name = models.CharField(max_length=100, verbose_name=_("宛先名"))
     email = models.EmailField(verbose_name=_("メールアドレス"))
     order = models.PositiveIntegerField(default=1, verbose_name=_("順序"))
+    # New fields for CloudSign integration
+    cloudsign_participant_id = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("CloudSign Participant ID"))
+    # recipient_id is required for embedded signing (simple authentication)
+    recipient_id = models.CharField(max_length=64, blank=True, null=True, verbose_name=_("CloudSign Recipient ID for Embedded Signing"))
+    tel = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("電話番号"))
+    is_embedded_signer = models.BooleanField(default=False, verbose_name=_("組み込み署名者"))
 
     class Meta:
         verbose_name = _("宛先")

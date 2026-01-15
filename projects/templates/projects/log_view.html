@@ -2,6 +2,19 @@
 
 {% block title %}アプリケーションログ{% endblock %}
 
+{% block extra_head %}
+<style>
+    .log-row-api {
+        border-left: 5px solid #0d6efd; /* Bootstrap's primary blue */
+    }
+    .table-sm th, .table-sm td {
+        padding: 0.4rem;
+        vertical-align: top;
+    }
+</style>
+{% endblock %}
+
+
 {% block content %}
     <h1 class="mb-4">アプリケーションログ</h1>
 
@@ -22,7 +35,7 @@
                 </div>
                 <div class="col-md-5">
                     <label for="id_search" class="form-label visually-hidden">検索キーワード</label>
-                    <input type="text" name="search" id="id_search" class="form-control" placeholder="メッセージまたはモジュールで検索" value="{{ request_get.search }}">
+                    <input type="text" name="search" id="id_search" class="form-control" placeholder="メッセージ、ロガー名、操作名で検索" value="{{ request_get.search }}">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary">フィルター</button>
@@ -45,34 +58,48 @@
             {% elif log_entries %}
                 <div class="table-responsive">
                     <table class="table table-striped table-bordered table-hover table-sm">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
-                                <th style="width: 10%;">レベル</th>
-                                <th style="width: 15%;">日時</th>
-                                <th style="width: 15%;">発生元</th>
-                                <th style="width: 60%;">メッセージ</th>
+                                <th style="width: 8%;">レベル</th>
+                                <th style="width: 14%;">日時</th>
+                                <th style="width: 12%;">ロガー名</th>
+                                <th style="width: 8%;">種別</th>
+                                <th style="width: 12%;">操作</th>
+                                <th style="width: 10%;">関連案件</th>
+                                <th style="width: 36%;">メッセージ</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for entry in log_entries %}
-                                <tr class="{{ entry.level_class }}">
+                                <tr class="{{ entry.level_class }} {% if entry.log_type == 'API' %}log-row-api{% endif %}">
                                     <td>
-                                        {% if entry.level == 'エラー' %}
-                                            <span class="badge bg-danger">{{ entry.level }}</span>
-                                        {% elif entry.level == '警告' %}
-                                            <span class="badge bg-warning">{{ entry.level }}</span>
-                                        {% elif entry.level == '情報' %}
-                                            <span class="badge bg-info">{{ entry.level }}</span>
-                                        {% elif entry.level == 'デバッグ' %}
-                                            <span class="badge bg-secondary">{{ entry.level }}</span>
-                                        {% else %}
-                                            <span class="badge bg-dark">{{ entry.level }}</span>
-                                        {% endif %}
+                                        <span class="badge 
+                                            {% if entry.level == 'エラー' or entry.level == '緊急' %}bg-danger
+                                            {% elif entry.level == '警告' %}bg-warning text-dark
+                                            {% elif entry.level == '情報' %}bg-info text-dark
+                                            {% elif entry.level == 'デバッグ' %}bg-secondary
+                                            {% else %}bg-dark
+                                            {% endif %}">{{ entry.level }}</span>
                                     </td>
                                     <td>{{ entry.datetime }}</td>
-                                    <td>{{ entry.module }}</td>
+                                    <td>{{ entry.logger_name }}</td>
                                     <td>
-                                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin-bottom: 0;">{{ entry.message }}</pre>
+                                        <span class="badge {% if entry.log_type == 'API' %}bg-primary{% else %}bg-light text-dark border{% endif %}">
+                                            {{ entry.log_type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ entry.operation|default:"N/A" }}</td>
+                                    <td>
+                                        {% if entry.project_url %}
+                                            <a href="{{ entry.project_url }}" class="btn btn-sm btn-outline-primary">
+                                                ID: {{ entry.project_id }}
+                                            </a>
+                                        {% else %}
+                                            {{ entry.project_id|default:"N/A" }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin-bottom: 0; font-size: 0.875em;">{{ entry.message }}</pre>
                                     </td>
                                 </tr>
                             {% endfor %}

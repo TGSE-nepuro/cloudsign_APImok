@@ -108,3 +108,37 @@ ParticipantFormSet = inlineformset_factory(
         'order': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
     }
 )
+
+# --- Forms for Embedded Signing Feature ---
+
+class EmbeddedParticipantForm(forms.ModelForm):
+    class Meta:
+        model = Participant
+        fields = ['name', 'email', 'order', 'tel', 'is_embedded_signer']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'tel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('例: 09012345678')}),
+            'is_embedded_signer': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_embedded = cleaned_data.get("is_embedded_signer")
+        tel = cleaned_data.get("tel")
+
+        if is_embedded and not tel:
+            raise ValidationError(
+                _("組み込み署名者には電話番号が必須です。"),
+                code='tel_required_for_embedded_signer'
+            )
+        return cleaned_data
+
+EmbeddedParticipantFormSet = inlineformset_factory(
+    Project,
+    Participant,
+    form=EmbeddedParticipantForm,
+    extra=1,
+    can_delete=True
+)

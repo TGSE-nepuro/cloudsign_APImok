@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}組み込み署名案件 作成完了{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>組み込み署名案件 作成完了</h1>
+
+    <div class="alert alert-success" role="alert">
+        <h4 class="alert-heading">成功！</h4>
+        <p>案件「{{ project.title }}」が正常に作成され、以下の署名URLが生成されました。</p>
+        <hr>
+        <p class="mb-0">各署名者に以下のURLを共有してください。</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>生成された署名URL</h3>
+        </div>
+        <div class="card-body">
+            {% if signing_urls %}
+                <ul class="list-group list-group-flush">
+                    {% for item in signing_urls %}
+                        <li class="list-group-item">
+                            <h5>{{ item.name }}</h5>
+                            <p class="mb-1"><strong>メール:</strong> {{ item.email }}</p>
+                            <p class="mb-2"><strong>署名URL:</strong> 
+                                <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.url }}</a>
+                            </p>
+                            <p class="text-muted small">有効期限: {{ item.expires_at|date:"Y年m月d日 H:i" }}</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>署名URLがありません。</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-primary">案件詳細へ</a>
+        <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">案件一覧へ</a>
+    </div>
+</div>
+{% endblock %}

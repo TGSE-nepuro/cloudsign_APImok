@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}組込み署名 - {{ project.title }}{% endblock %}
+
+{% block content %}
+    <h1>組込み署名</h1>
+    <div class="card">
+        <div class="card-header">
+            {{ project.title }} - {{ participant.name }}
+        </div>
+        <div class="card-body">
+            {% if signing_url %}
+                <p>以下のURLで署名プロセスを完了してください:</p>
+                <a href="{{ signing_url }}" target="_blank" class="btn btn-primary mb-3">署名ページを開く</a>
+                
+                <p>または、以下に埋め込みます:</p>
+                <div class="embed-responsive embed-responsive-16by9">
+                    <iframe class="embed-responsive-item" src="{{ signing_url }}" allowfullscreen style="width:100%; height:600px; border:none;"></iframe>
+                </div>
+                {% if expires_at %}
+                    <p class="mt-3">この署名URLは {{ expires_at }} に期限切れになります。</p>
+                {% endif %}
+            {% else %}
+                <p class="text-danger">組込み署名URLを取得できませんでした。</p>
+            {% endif %}
+            <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-secondary mt-3">案件詳細に戻る</a>
+        </div>
+    </div>
+{% endblock %}

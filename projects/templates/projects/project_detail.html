@@ -37,18 +37,32 @@
                 {% endif %}
             {% endif %}
 
+            {# Add buttons for embedded signing for local participants #}
+            {% if project.cloudsign_document_id and project.participants.all %}
+                <h5 class="card-title mt-3">組込み署名リンク:</h5>
+                <ul class="list-group mb-3">
+                    {% for local_participant in project.participants.all %}
+                        {% if local_participant.cloudsign_participant_id %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ local_participant.name }} ({{ local_participant.email }})
+                                <a href="{% url 'projects:embedded_signing_view' project_pk=project.pk participant_pk=local_participant.pk %}" 
+                                   class="btn btn-sm btn-outline-primary">組込み署名を開く</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
             <p class="card-text"><small class="text-muted">作成日時: {{ project.created_at|date:"Y/m/d H:i" }}</small></p>
             <p class="card-text"><small class="text-muted">更新日時: {{ project.updated_at|date:"Y/m/d H:i" }}</small></p>
             <a href="{% url 'projects:project_manage_edit' project.pk %}" class="btn btn-warning">編集</a>
             <a href="{% url 'projects:project_delete' project.pk %}" class="btn btn-danger">削除</a>
             <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">一覧に戻る</a>
             {% if project.cloudsign_document_id %}
-
-                <form action="{% url 'projects:send_document' project.pk %}" method="post" style="display:inline-block; margin-left: 5px;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-success" onclick="return confirm('本当にドキュメントを送信しますか？')">ドキュメントを送信</button>
-                </form>
-                <a href="{% url 'projects:download_document' project.pk %}" class="btn btn-primary" style="margin-left: 5px;">ドキュメントをダウンロード</a>
+                <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-info" style="margin-left: 5px;">ステータスを更新</a>
+                {% if cloudsign_status == "締結済" %}
+                    <a href="{% url 'projects:download_document' project.pk %}" class="btn btn-primary" style="margin-left: 5px;">契約書を取得</a>
+                {% endif %}
             {% endif %}
         </div>
     </div>

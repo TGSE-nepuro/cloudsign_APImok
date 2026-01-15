@@ -625,7 +625,7 @@ class DocumentSendViewTests(TestCase):
         self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
         messages = list(response.context['messages'])
         self.assertEqual(len(messages), 1)
-        self.assertIn("CloudSignドキュメントの送信に失敗しました: 予期せぬエラー: API Send Error", str(messages[0]))
+        self.assertIn("CloudSignドキュメントの送信に失敗しました: API Send Error", str(messages[0]))
 
     def test_post_send_document_no_cloudsign_document_id(self, MockCloudSignAPIClient):
         mock_api_instance = MockCloudSignAPIClient.return_value
@@ -665,7 +665,7 @@ class DocumentDownloadViewTests(TestCase):
         self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
         messages = list(response.context['messages'])
         self.assertEqual(len(messages), 1)
-        self.assertIn("CloudSignドキュメントのダウンロードに失敗しました: 予期せぬエラー: API Download Error", str(messages[0]))
+        self.assertIn("CloudSignドキュメントのダウンロードに失敗しました: API Download Error", str(messages[0]))
 
     def test_get_download_document_no_cloudsign_document_id(self, MockCloudSignAPIClient):
         mock_api_instance = MockCloudSignAPIClient.return_value
@@ -1184,7 +1184,7 @@ class DocumentSendViewTests(TestCase):
         self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
         messages = list(response.context['messages'])
         self.assertEqual(len(messages), 1)
-        self.assertIn("CloudSignドキュメントの送信に失敗しました: 予期せぬエラー: API Send Error", str(messages[0]))
+        self.assertIn("CloudSignドキュメントの送信に失敗しました: API Send Error", str(messages[0]))
 
     def test_post_send_document_no_cloudsign_document_id(self, MockCloudSignAPIClient):
         mock_api_instance = MockCloudSignAPIClient.return_value
@@ -1224,7 +1224,7 @@ class DocumentDownloadViewTests(TestCase):
         self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
         messages = list(response.context['messages'])
         self.assertEqual(len(messages), 1)
-        self.assertIn("CloudSignドキュメントのダウンロードに失敗しました: 予期せぬエラー: API Download Error", str(messages[0]))
+        self.assertIn("CloudSignドキュメントのダウンロードに失敗しました: API Download Error", str(messages[0]))
 
     def test_get_download_document_no_cloudsign_document_id(self, MockCloudSignAPIClient):
         mock_api_instance = MockCloudSignAPIClient.return_value

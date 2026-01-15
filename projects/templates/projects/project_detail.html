@@ -45,9 +45,7 @@
                         {% if local_participant.cloudsign_participant_id %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 {{ local_participant.name }} ({{ local_participant.email }})
-                                <a href="{% url 'projects:embedded_signing_view' project_pk=project.pk participant_pk=local_participant.pk %}" 
-                                   class="btn btn-sm btn-outline-primary">組込み署名を開く</a>
-                            </li>
+                                                            </li>
                         {% endif %}
                     {% endfor %}
                 </ul>

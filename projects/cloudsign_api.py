@@ -280,7 +280,8 @@ class CloudSignAPIClient:
             generated_signing_urls_info.append({
                 'name': signer_info['name'],
                 'url': signing_info['url'],
-                'expires_at': signing_info['expires_at']
+                'expires_at': signing_info['expires_at'],
+                'cloudsign_participant_id': signer_info['cloudsign_participant_id']
             })
             logger.info(f"[create_embedded_signing_document][get_embedded_signing_url][Project: {document_id}] Signing URL generated for '{signer_info['name']}'.")
 

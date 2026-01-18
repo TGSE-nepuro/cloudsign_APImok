@@ -12,7 +12,8 @@ import logging
 import requests
 import os
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -524,17 +525,21 @@ class EmbeddedProjectCreateView(View):
             project.cloudsign_document_id = document_id
             project.save()
 
+            # Create a mapping of email to participant instance for efficient lookup
+            participant_map = {p.email: p for p in participant_instances}
+
+            # Update participants with CloudSign IDs and signing URLs
             for p_data in participants_with_cs_id:
-                Participant.objects.filter(
-                    project=project,
-                    email=p_data['email'],
-                    name=p_data['name']
-                ).update(cloudsign_participant_id=p_data['cloudsign_participant_id'])
+                participant = participant_map.get(p_data.get('email'))
+                if participant:
+                    participant.cloudsign_participant_id = p_data.get('cloudsign_participant_id')
+                    # Find the corresponding signing URL info
+                    url_info = next((url for url in signing_urls if url.get('cloudsign_participant_id') == p_data.get('cloudsign_participant_id')), None)
+                    if url_info:
+                        participant.signing_url = url_info.get('url')
+                    participant.save()
             
-            request.session['embedded_signing_result'] = {
-                'project_id': project.id,
-                'signing_urls': signing_urls,
-            }
+            request.session['embedded_project_id'] = project.id
 
             messages.success(request, "案件が作成され、組み込み署名URLが生成されました。")
             return redirect(self.success_url_name)
@@ -553,16 +558,42 @@ class EmbeddedProjectSuccessView(TemplateView):
     template_name = 'projects/embedded_project_success.html'
 
     def get(self, request, *args, **kwargs):
-        result = request.session.pop('embedded_signing_result', None)
+        project_id = request.session.pop('embedded_project_id', None)
 
-        if not result:
+        if not project_id:
             messages.warning(request, "表示する署名URL情報がありません。")
             return redirect(reverse_lazy('projects:project_list'))
 
-        project = get_object_or_404(Project, pk=result.get('project_id'))
+        project = get_object_or_404(Project, pk=project_id)
         
+        # Retrieve participants with saved URLs from the database to ensure data is fresh
+        participants_with_urls = project.participants.filter(is_embedded_signer=True, signing_url__isnull=False)
+
         context = {
             'project': project,
-            'signing_urls': result.get('signing_urls', []),
+            'participants_with_urls': participants_with_urls, # Pass the queryset to the template
         }
         return render(request, self.template_name, context)
+
+class SigningView(DetailView):
+    """
+    Displays the signing page for a specific participant.
+    """
+    model = Participant
+    template_name = 'projects/signing_page.html'
+    context_object_name = 'participant'
+    slug_field = 'id'
+    slug_url_kwarg = 'signer_id'
+
+    def get_object(self, queryset=None):
+        """
+        Retrieves the Participant object using a UUID from the URL.
+        """
+        signer_id = self.kwargs.get(self.slug_url_kwarg)
+        try:
+            # Ensure it's a valid UUID, though the URL pattern should handle this.
+            if isinstance(signer_id, str):
+                UUID(signer_id)
+        except (ValueError, TypeError):
+            raise Http404("無効な署名者IDです。")
+        return get_object_or_404(Participant, id=signer_id)

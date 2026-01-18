@@ -3,7 +3,7 @@ from .views import (
     HomeView, ProjectListView, ProjectDetailView, ProjectManageView, 
     ProjectDeleteView, CloudSignConfigView, CloudSignConfigDeleteView, 
     LogView, DocumentSendView, DocumentDownloadView,
-    EmbeddedProjectCreateView, EmbeddedProjectSuccessView
+    EmbeddedProjectCreateView, EmbeddedProjectSuccessView, SigningView
 )
 
 app_name = 'projects'
@@ -22,4 +22,5 @@ urlpatterns = [
     path('<int:pk>/download-document/', DocumentDownloadView.as_view(), name='download_document'),
     path('embedded-new/', EmbeddedProjectCreateView.as_view(), name='embedded_project_create_new'),
     path('embedded-new/success/', EmbeddedProjectSuccessView.as_view(), name='embedded_project_create_success'),
+    path('signing/<uuid:signer_id>/', SigningView.as_view(), name='signing_view'),
 ]

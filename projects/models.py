@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -97,6 +98,7 @@ class Participant(models.Model):
     linked to a local Project. This allows saving draft participants
     before sending a document.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(Project, related_name='participants', on_delete=models.CASCADE, verbose_name=_("案件"))
     name = models.CharField(max_length=100, verbose_name=_("宛先名"))
     email = models.EmailField(verbose_name=_("メールアドレス"))
@@ -107,6 +109,8 @@ class Participant(models.Model):
     recipient_id = models.CharField(max_length=64, blank=True, null=True, verbose_name=_("CloudSign Recipient ID for Embedded Signing"))
     tel = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("電話番号"))
     is_embedded_signer = models.BooleanField(default=False, verbose_name=_("組み込み署名者"))
+    signing_url = models.URLField(blank=True, null=True, verbose_name=_("署名URL"))
+
 
     class Meta:
         verbose_name = _("宛先")

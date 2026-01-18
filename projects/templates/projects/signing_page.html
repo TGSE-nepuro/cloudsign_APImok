@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}ドキュメント署名{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>ドキュメント署名</h1>
+    <p>
+        <strong>案件名:</strong> {{ participant.project.title }}<br>
+        <strong>署名者:</strong> {{ participant.name }} ({{ participant.email }})
+    </p>
+
+    {% if participant.signing_url %}
+        <div class="embed-responsive embed-responsive-16by9" style="height: 80vh; border: 1px solid #ccc;">
+            <iframe class="embed-responsive-item" src="{{ participant.signing_url }}" allowfullscreen></iframe>
+        </div>
+        <p class="mt-3">上記ウィンドウ内で署名プロセスを完了してください。</p>
+    {% else %}
+        <div class="alert alert-danger" role="alert">
+            署名URLが見つかりません。この署名者には組み込み署名が割り当てられていない可能性があります。
+        </div>
+    {% endif %}
+
+    <a href="{% url 'projects:project_detail' pk=participant.project.pk %}" class="btn btn-secondary mt-3">案件詳細に戻る</a>
+</div>
+{% endblock %}

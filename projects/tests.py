@@ -7,7 +7,7 @@ import requests # Added for RequestException
 
 from projects.cloudsign_api import CloudSignAPIClient
 from projects.models import CloudSignConfig, Project, ContractFile, Participant
-from django.urls import reverse, resolve
+from django.urls import reverse, resolve, NoReverseMatch
 from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils.translation import gettext_lazy as _
@@ -259,6 +259,20 @@ class CloudSignAPIClientTests(TestCase):
 
         # The actual method call and its return will be tested once it's implemented.
         # For now, this test primarily verifies the internal API calls.
+
+class ProjectModelTests(TestCase):
+    def test_participant_model_can_save_signing_url(self):
+        """Test that the Participant model can save a signing_url."""
+        project = Project.objects.create(title="Test Project for Signing URL")
+        participant = Participant.objects.create(
+            project=project,
+            name="Signer",
+            email="signer@example.com",
+            signing_url="http://example.com/sign/12345"
+        )
+        retrieved_participant = Participant.objects.get(id=participant.id)
+        self.assertEqual(retrieved_participant.signing_url, "http://example.com/sign/12345")
+
 
 class CloudSignConfigViewTests(TestCase):
     def setUp(self):
@@ -894,8 +908,8 @@ class EmbeddedProjectCreateViewTests(TestCase):
         mock_create_embedded_signing_document.return_value = (
             'embedded_doc_id', # document_id
             [ # signing_urls
-                {'name': 'Signer One', 'url': 'https://embedded.cloudsign.jp/signer1'},
-                {'name': 'Signer Two', 'url': 'https://embedded.cloudsign.jp/signer2'}
+                {'name': 'Signer One', 'url': 'https://embedded.cloudsign.jp/signer1', 'cloudsign_participant_id': 'embedded_part_id_1'},
+                {'name': 'Signer Two', 'url': 'https://embedded.cloudsign.jp/signer2', 'cloudsign_participant_id': 'embedded_part_id_2'}
             ],
             [ # participants_with_cs_id
                 {'email': 'signer1@example.com', 'name': 'Signer One', 'cloudsign_participant_id': 'embedded_part_id_1'},
@@ -935,19 +949,15 @@ class EmbeddedProjectCreateViewTests(TestCase):
         new_project = Project.objects.get(title='New Embedded Project')
         self.assertEqual(new_project.cloudsign_document_id, 'embedded_doc_id')
         self.assertEqual(new_project.participants.count(), 2)
-        self.assertEqual(new_project.participants.all()[0].cloudsign_participant_id, "embedded_part_id_1")
-        self.assertEqual(new_project.participants.all()[1].cloudsign_participant_id, "embedded_part_id_2")
 
+        # Verify that the signing_url was saved to the participant object
+        signer1 = new_project.participants.get(email='signer1@example.com')
+        self.assertEqual(signer1.signing_url, 'https://embedded.cloudsign.jp/signer1')
+        self.assertEqual(signer1.cloudsign_participant_id, "embedded_part_id_1")
 
-
-        context_signing_urls = response.context['signing_urls']
-        self.assertEqual(len(context_signing_urls), 2)
-        self.assertEqual(context_signing_urls[0]['name'], 'Signer One')
-        self.assertEqual(context_signing_urls[0]['url'], 'https://embedded.cloudsign.jp/signer1')
-        self.assertEqual(context_signing_urls[1]['name'], 'Signer Two')
-        self.assertEqual(context_signing_urls[1]['url'], 'https://embedded.cloudsign.jp/signer2')
-
-
+        context_participants = response.context['participants_with_urls']
+        self.assertEqual(len(context_participants), 2)
+        self.assertIn(signer1, context_participants)
 
         messages_list = list(get_messages(response.wsgi_request))
         self.assertTrue(any("案件が作成され、組み込み署名URLが生成されました。" in str(m) for m in messages_list))
@@ -1058,6 +1068,39 @@ class EmbeddedProjectCreateViewTests(TestCase):
         self.assertTemplateUsed(response, 'projects/embedded_project_form.html')
         self.assertContains(response, "CloudSign連携中にエラーが発生しました: Connection Timeout")
         self.assertEqual(Project.objects.count(), 0) # Verify project creation was rolled back
+
+class SigningViewTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.project = Project.objects.create(title="Test Project for Signing")
+        self.participant = Participant.objects.create(
+            project=self.project,
+            name="Test Signer",
+            email="signer@example.com",
+            signing_url="https://example.com/sign-here"
+        )
+        self.url = reverse('projects:signing_view', kwargs={'signer_id': self.participant.id})
+
+    def test_get_signing_page_success(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'projects/signing_page.html')
+        self.assertEqual(response.context['participant'], self.participant)
+        self.assertContains(response, self.participant.project.title)
+        self.assertContains(response, self.participant.name)
+        self.assertContains(response, self.participant.signing_url)
+        self.assertContains(response, f'<iframe class="embed-responsive-item" src="{self.participant.signing_url}" allowfullscreen></iframe>')
+
+    def test_get_signing_page_invalid_uuid(self):
+        with self.assertRaises(NoReverseMatch):
+            reverse('projects:signing_view', kwargs={'signer_id': 'not-a-uuid'})
+
+    def test_get_signing_page_nonexistent_participant(self):
+        import uuid
+        nonexistent_uuid = uuid.uuid4()
+        nonexistent_url = reverse('projects:signing_view', kwargs={'signer_id': nonexistent_uuid})
+        response = self.client.get(nonexistent_url)
+        self.assertEqual(response.status_code, 404)
 
 
 @patch('projects.views.CloudSignAPIClient')

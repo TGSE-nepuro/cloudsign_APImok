@@ -613,6 +613,50 @@ class ProjectDetailViewTests(TestCase):
             # The status text should also be visible
             self.assertContains(response, "先方確認中")
 
+    def test_detail_view_shows_embedded_signing_link(self, MockCloudSignAPIClient):
+        """
+        Tests that the project detail view correctly displays a link to the embedded signing page
+        for participants who have a signing_url.
+        """
+        # Mock get_document to prevent API calls in this specific test
+        mock_api_instance = MockCloudSignAPIClient.return_value
+        mock_api_instance.get_document.return_value = {
+            "id": "doc_123",
+            "status": 1,
+            "participants": []
+        }
+
+        project = Project.objects.create(title="Project with Signing URL", cloudsign_document_id="doc_123")
+        
+        participant_with_url = Participant.objects.create(
+            project=project,
+            name="Signer With URL",
+            email="signer1@example.com",
+            signing_url="https://example.com/sign-here"
+        )
+        participant_without_url = Participant.objects.create(
+            project=project,
+            name="Signer Without URL",
+            email="signer2@example.com",
+            signing_url="" # No URL
+        )
+        
+        detail_url = reverse('projects:project_detail', kwargs={'pk': project.pk})
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, 200)
+
+        # The link for the participant with a URL should be present
+        signing_page_url = reverse('projects:signing_view', kwargs={'signer_id': participant_with_url.id})
+        self.assertContains(response, f'href="{signing_page_url}"')
+        self.assertContains(response, "Signer With URL")
+        
+        # There should be no link for the participant without a URL
+        self.assertContains(response, "Signer Without URL")
+        self.assertNotContains(response, f'href="{reverse("projects:signing_view", kwargs={"signer_id": participant_without_url.id})}"') # Assert link for this participant is not there
+
+
+
 @patch('projects.views.CloudSignAPIClient')
 class DocumentSendViewTests(TestCase):
     def setUp(self):
@@ -1101,356 +1145,4 @@ class SigningViewTests(TestCase):
         nonexistent_url = reverse('projects:signing_view', kwargs={'signer_id': nonexistent_uuid})
         response = self.client.get(nonexistent_url)
         self.assertEqual(response.status_code, 404)
-
-
-@patch('projects.views.CloudSignAPIClient')
-class ProjectDetailViewTests(TestCase):
-    def setUp(self):
-        CloudSignConfig.objects.create(client_id="test_client_id", api_base_url="https://api-sandbox.cloudsign.jp")
-        self.client = Client()
-    def test_project_detail_view_shows_participants(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        mock_api_instance.get_document.return_value = {
-            "id": "doc_id_with_participants",
-            "status": 1,  # "先方確認中"
-            "participants": [
-                {"email": "participant1@example.com", "name": "Participant One"},
-                {"email": "participant2@example.com", "name": "Participant Two"}
-            ]
-        }
-
-        project = Project.objects.create(title="Project with Participants", description="Description", cloudsign_document_id="doc_id_with_participants")
-        detail_url = reverse('projects:project_detail', kwargs={'pk': project.pk})
-
-        response = self.client.get(detail_url)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/project_detail.html')
-        self.assertIn('cloudsign_participants', response.context)
-        self.assertEqual(len(response.context['cloudsign_participants']), 2)
-        
-        # Verify status text
-        self.assertContains(response, "先方確認中")
-
-        # Verify participant text
-        self.assertEqual(response.context['cloudsign_participants'][0]['name'], "Participant One")
-        self.assertContains(response, "Participant One (participant1@example.com)")
-        self.assertContains(response, "Participant Two (participant2@example.com)")
-        
-        mock_api_instance.get_document.assert_called_once_with(project.cloudsign_document_id)
-
-    def test_detail_view_button_visibility(self, MockCloudSignAPIClient):
-        """
-        Tests the visibility of 'Status Update' and 'Get Contract' buttons.
-        """
-        mock_api_instance = MockCloudSignAPIClient.return_value
-
-        with self.subTest("Project without cloudsign_document_id"):
-            project_no_cs = Project.objects.create(title="No CS ID")
-            detail_url = reverse('projects:project_detail', kwargs={'pk': project_no_cs.pk})
-            response = self.client.get(detail_url)
-            self.assertEqual(response.status_code, 200)
-            self.assertNotContains(response, "ステータスを更新")
-            self.assertNotContains(response, "契約書を取得")
-
-        with self.subTest("Project with CS ID and status 'Concluded'"):
-            project_cs = Project.objects.create(title="With CS ID", cloudsign_document_id="doc_123")
-            mock_api_instance.get_document.return_value = {
-                "id": "doc_123",
-                "status": 2,  # 締結済 (Corrected based on CloudSign API spec)
-                "participants": []
-            }
-            detail_url = reverse('projects:project_detail', kwargs={'pk': project_cs.pk})
-            response = self.client.get(detail_url)
-            self.assertEqual(response.status_code, 200)
-            self.assertContains(response, "ステータスを更新")
-            self.assertContains(response, "契約書を取得")
-            # The status text should also be visible
-            self.assertContains(response, "締結済")
-
-        with self.subTest("Project with CS ID and status not 'Concluded'"):
-            # Re-use the same project, just change the mock return value
-            mock_api_instance.get_document.return_value = {
-                "id": "doc_123",
-                "status": 1,  # 先方確認中
-                "participants": []
-            }
-            detail_url = reverse('projects:project_detail', kwargs={'pk': project_cs.pk})
-            response = self.client.get(detail_url)
-            self.assertEqual(response.status_code, 200)
-            self.assertContains(response, "ステータスを更新")
-            self.assertNotContains(response, "契約書を取得")
-            # The status text should also be visible
-            self.assertContains(response, "先方確認中")
-
-@patch('projects.views.CloudSignAPIClient')
-class DocumentSendViewTests(TestCase):
-    def setUp(self):
-        CloudSignConfig.objects.create(client_id="test_client_id", api_base_url="https://api-sandbox.cloudsign.jp")
-        self.project = Project.objects.create(title="Project for Sending", description="Description for send test", cloudsign_document_id="doc_id_for_send_test")
-        self.client = Client()
-        self.send_document_url = reverse('projects:send_document', kwargs={'pk': self.project.pk})
-
-    def test_post_send_document_success(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        mock_api_instance.send_document.return_value = {"status": "sent"}
-        response = self.client.post(self.send_document_url, follow=True)
-        mock_api_instance.send_document.assert_called_once_with(document_id=self.project.cloudsign_document_id)
-        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
-        messages = list(response.context['messages'])
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), f"CloudSignドキュメント (ID: {self.project.cloudsign_document_id}) が正常に送信されました。")
-
-    def test_post_send_document_api_error(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        mock_api_instance.send_document.side_effect = Exception("API Send Error")
-        response = self.client.post(self.send_document_url, follow=True)
-        mock_api_instance.send_document.assert_called_once()
-        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
-        messages = list(response.context['messages'])
-        self.assertEqual(len(messages), 1)
-        self.assertIn("CloudSignドキュメントの送信に失敗しました: API Send Error", str(messages[0]))
-
-    def test_post_send_document_no_cloudsign_document_id(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        project_no_doc_id = Project.objects.create(title="Project No Doc ID for Send", description="Description", cloudsign_document_id="")
-        send_document_url_no_doc_id = reverse('projects:send_document', kwargs={'pk': project_no_doc_id.pk})
-        response = self.client.post(send_document_url_no_doc_id, follow=True)
-        mock_api_instance.send_document.assert_not_called()
-        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': project_no_doc_id.pk}))
-        messages = list(response.context['messages'])
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、ドキュメントを送信できません。")
-
-
-@patch('projects.views.CloudSignAPIClient')
-class DocumentDownloadViewTests(TestCase):
-    def setUp(self):
-        CloudSignConfig.objects.create(client_id="test_client_id", api_base_url="https://api-sandbox.cloudsign.jp")
-        self.project = Project.objects.create(title="Project for Download", description="Description for download test", cloudsign_document_id="doc_id_for_download_test")
-        self.client = Client()
-        self.download_document_url = reverse('projects:download_document', kwargs={'pk': self.project.pk})
-
-    def test_get_download_document_success(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        mock_api_instance.download_document.return_value = b"This is a test PDF content."
-        response = self.client.get(self.download_document_url)
-        mock_api_instance.download_document.assert_called_once_with(self.project.cloudsign_document_id)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response['Content-Type'], 'application/pdf')
-        self.assertIn(f'attachment; filename="cloudsign_document_{self.project.cloudsign_document_id}.pdf"', response['Content-Disposition'])
-        self.assertEqual(response.content, b"This is a test PDF content.")
-
-    def test_get_download_document_api_error(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        mock_api_instance.download_document.side_effect = Exception("API Download Error")
-        response = self.client.get(self.download_document_url, follow=True)
-        mock_api_instance.download_document.assert_called_once()
-        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': self.project.pk}))
-        messages = list(response.context['messages'])
-        self.assertEqual(len(messages), 1)
-        self.assertIn("CloudSignドキュメントのダウンロードに失敗しました: API Download Error", str(messages[0]))
-
-    def test_get_download_document_no_cloudsign_document_id(self, MockCloudSignAPIClient):
-        mock_api_instance = MockCloudSignAPIClient.return_value
-        project_no_doc_id = Project.objects.create(title="Project No Doc ID for Download", description="Description", cloudsign_document_id="")
-        download_document_url_no_doc_id = reverse('projects:download_document', kwargs={'pk': project_no_doc_id.pk})
-        response = self.client.get(download_document_url_no_doc_id, follow=True)
-        mock_api_instance.download_document.assert_not_called()
-        self.assertRedirects(response, reverse('projects:project_detail', kwargs={'pk': project_no_doc_id.pk}))
-        messages = list(response.context['messages'])
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), "CloudSignドキュメントIDがないため、ドキュメントをダウンロードできません。")
-
-class ProjectListViewTests(TestCase):
-    def setUp(self):
-        self.client = Client()
-        self.list_url = reverse('projects:project_list')
-        # Create 15 projects to test pagination
-        for i in range(15):
-            Project.objects.create(
-                title=f'Test Project {i}',
-                description=f'This is a description for project {i}.',
-                due_date=date(2023, 1, i + 1)
-            )
-
-    def test_pagination_displays_10_projects(self):
-        response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/project_list.html')
-        self.assertEqual(len(response.context['projects']), 10)
-        self.assertTrue(response.context['is_paginated'])
-
-    def test_pagination_second_page(self):
-        response = self.client.get(self.list_url, {'page': 2})
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/project_list.html')
-        self.assertEqual(len(response.context['projects']), 5)
-
-    def test_search_by_title(self):
-        response = self.client.get(self.list_url, {'search': 'Project 1'})
-        self.assertEqual(response.status_code, 200)
-        # Should find 'Project 1' and 'Project 10' through 'Project 14'
-        self.assertEqual(len(response.context['projects']), 6)
-        self.assertContains(response, 'Test Project 1')
-        self.assertNotContains(response, 'Test Project 2')
-
-    def test_search_by_description(self):
-        response = self.client.get(self.list_url, {'search': 'description for project 5'})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['projects']), 1)
-        self.assertContains(response, 'Test Project 5')
-
-    def test_search_no_results(self):
-        response = self.client.get(self.list_url, {'search': 'nonexistent query'})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['projects']), 0)
-        self.assertContains(response, "該当する案件がありません。")
-
-    def test_search_retains_query_in_input(self):
-        search_query = "search query"
-        response = self.client.get(self.list_url, {'search': search_query})
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f'value="{search_query}"')
-
-    def test_filter_by_due_date(self):
-        response = self.client.get(self.list_url, {'date_from': '2023-01-05', 'date_to': '2023-01-10'})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context['projects']), 6)
-        self.assertContains(response, 'Test Project 4') # due_date=2023-01-05
-        self.assertContains(response, 'Test Project 9') # due_date=2023-01-10
-        self.assertNotContains(response, 'Test Project 3')
-        self.assertNotContains(response, 'Test Project 10')
-
-class ProjectFormTests(TestCase):
-    def test_amount_field_with_commas(self):
-        form_data = {
-            'title': 'Test Project',
-            'description': 'Test Description',
-            'amount': '1,234,567'
-        }
-        form = ProjectForm(data=form_data)
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data['amount'], 1234567)
-
-    def test_amount_field_invalid_characters(self):
-        form_data = {
-            'title': 'Test Project',
-            'description': 'Test Description',
-            'amount': '1,234,abc'
-        }
-        form = ProjectForm(data=form_data)
-        self.assertFalse(form.is_valid())
-        self.assertIn('amount', form.errors)
-        self.assertEqual(form.errors['amount'][0], "有効な数値を入力してください。")
-
-from unittest.mock import patch, MagicMock, mock_open
-
-class LogViewTests(TestCase):
-    def setUp(self):
-        self.client = Client()
-        self.log_url = reverse('projects:log_view')
-        # Mock settings.LOG_DIR for testing log file path display
-        self.mock_log_dir_patch = patch('projects.views.settings.LOG_DIR', new_callable=MagicMock)
-        self.mock_log_dir = self.mock_log_dir_patch.start()
-        self.mock_log_dir.__truediv__.return_value = '/mock/path/debug.log' # Simulate path
-        self.mock_log_dir.exists.return_value = True
-
-    def tearDown(self):
-        self.mock_log_dir_patch.stop()
-
-    @patch('os.path.exists', return_value=True)
-    @patch('projects.views.open', new_callable=MagicMock) # Use MagicMock for open
-    def test_log_view_displays_parsed_log_content(self, mock_open_file, mock_exists):
-        """
-        Tests that the view correctly displays parsed log content, distinguishing internal and API logs.
-        """
-        log_content = (
-            "INFO 2023-10-27 12:34:56,789 projects.views projects.views 123 456 Internal Log Message\n"
-            "ERROR 2023-10-27 12:34:57,890 projects.cloudsign_api projects.cloudsign_api 789 012 API Error Message.\n"
-            "WARNING 2023-10-27 12:34:58,901 django.request django.request 111 222 Some Django warning."
-        )
-        mock_file_handle = MagicMock()
-        mock_file_handle.__enter__.return_value.__iter__.return_value = log_content.splitlines()
-        mock_open_file.return_value = mock_file_handle
-
-        response = self.client.get(self.log_url) 
-        
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/log_view.html')
-        
-        # Check for parsed log entries in context
-        log_entries_context = response.context['log_entries']
-        self.assertEqual(len(log_entries_context), 3)
-
-        # The log entries are reversed in the view, so we check them in reverse order of the log file content.
-        # Entry 1: Django Log (Warning)
-        self.assertEqual(log_entries_context[0]['level'], "警告")
-        self.assertEqual(log_entries_context[0]['logger_name'], "django.request")
-        self.assertEqual(log_entries_context[0]['log_type'], "内部")
-        
-        # Entry 2: API Log (Error)
-        self.assertEqual(log_entries_context[1]['level'], "エラー")
-        self.assertEqual(log_entries_context[1]['logger_name'], "projects.cloudsign_api")
-        self.assertEqual(log_entries_context[1]['message'], "API Error Message.")
-        self.assertEqual(log_entries_context[1]['log_type'], "API")
-
-        # Entry 3: Internal Log (Info)
-        self.assertEqual(log_entries_context[2]['level'], "情報")
-        self.assertEqual(log_entries_context[2]['datetime'], "2023-10-27 12:34:56")
-        self.assertEqual(log_entries_context[2]['logger_name'], "projects.views")
-        self.assertEqual(log_entries_context[2]['message'], "Internal Log Message")
-        self.assertEqual(log_entries_context[2]['log_type'], "内部")
-
-        mock_exists.assert_called_once()
-        mock_open_file.assert_called_once_with(
-            '/mock/path/debug.log', 'r', encoding='utf-8', errors='ignore'
-        )
-
-    @patch('os.path.exists', return_value=True)
-    @patch('projects.views.open', new_callable=MagicMock)
-    def test_log_view_parses_contextual_info(self, mock_open_file, mock_exists):
-        """
-        Tests that the view correctly parses and extracts contextual information 
-        (operation, project_id) from enriched log messages.
-        """
-        log_content = (
-            "ERROR 2023-10-28 10:00:00,000 projects.views projects.views 123 456 "
-            "[ProjectManageView][save_and_send][Project: 42] Something went wrong."
-        )
-        mock_file_handle = MagicMock()
-        mock_file_handle.__enter__.return_value.__iter__.return_value = log_content.splitlines()
-        mock_open_file.return_value = mock_file_handle
-
-        # Create a dummy project so the reverse URL lookup works
-        Project.objects.create(id=42, title="Test Project 42")
-
-        response = self.client.get(self.log_url)
-        
-        self.assertEqual(response.status_code, 200)
-        
-        log_entries = response.context.get('log_entries')
-        self.assertIsNotNone(log_entries)
-        self.assertEqual(len(log_entries), 1)
-        
-        entry = log_entries[0]
-        self.assertEqual(entry.get('operation'), 'save_and_send')
-        self.assertEqual(entry.get('project_id'), '42')
-        self.assertEqual(entry.get('project_url'), reverse('projects:project_detail', kwargs={'pk': 42}))
-
-    @patch('os.path.exists', return_value=False)
-    def test_log_view_file_not_found(self, mock_exists):
-        """
-        Tests that the view handles a non-existent log file correctly.
-        """
-        response = self.client.get(self.log_url)
-            
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/log_view.html')
-        
-        # Assert the view's context is correct
-        self.assertFalse(response.context['log_file_exists'])
-        self.assertEqual(len(response.context['log_entries']), 0)
-        
-        mock_exists.assert_called_once_with('/mock/path/debug.log')
 

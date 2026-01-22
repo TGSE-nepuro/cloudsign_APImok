@@ -213,7 +213,7 @@
 
 #### 37. プロジェクトの初期状態確認とクリーンアップ
 *   ユーザーからの作業開始指示を受け、プロジェクトディレクトリ (`C:\Users\tgses\OneDrive\ドキュメント\LF業務\iPaaS案件\クラウドサインテスト`) 内の`指示書.txt`および`作業記録.txt`を読み込み、現在の状況と要件を把握しました。
-*   `git status`コマンドでリポジトリの状態を確認したところ、複数の変更済みファイル（テンプレート、`tests.py`、`urls.py`など）と、未追跡の`media/`ディレクトリが存在することを確認しました。これらは前回の作業でコミット漏れがあったものと判断しました。
+*   `git status`コマンドでリポジリの状態を確認したところ、複数の変更済みファイル（テンプレート、`tests.py`、`urls.py`など）と、未追跡の`media/`ディレクトリが存在することを確認しました。これらは前回の作業でコミット漏れがあったものと判断しました。
 *   Gitコミット漏れの変更（UI改善とビュー統合に関連するテンプレート、`urls.py`、`tests.py`の更新）を「feat: Improve project form UI and finalize view integration」のコミットメッセージでコミットし、コードベースを安定化しました。
 *   未追跡の`media/`ディレクトリがユーザーアップロードファイル用であると判断し、`.gitignore`に`media/`を追加しました。
 *   既にGitに誤って追加されていた`media/`ディレクトリ内のファイルを`git rm -r --cached media`コマンドでインデックスから削除し、`.gitignore`の更新と共に「build: Ignore media directory」のコミットメッセージでコミットしました。
@@ -364,25 +364,4 @@
 
 #### 51. テストエラーの修正とコードベースの安定化 (2026年1月15日-16日)
 *   **`NoReverseMatch`の修正:** 
-    *   `projects/templates/projects/project_detail.html`から、廃止された`embedded_signing_view`へのリンク (`<a href="{% url 'projects:embedded_signing_view' ... %}"`) を削除しました。
-*   **文字化けしたエラーメッセージのアサーション修正:** 
-    *   `projects/tests.py`内の`DocumentDownloadViewTests.test_get_download_document_api_error`および`DocumentSendViewTests.test_post_send_document_api_error`において、文字化けしていた期待されるエラーメッセージを修正しました（`expected_replacements=2`を指定して、コードの重複問題を考慮して修正）。
-*   **`ProjectManageViewTests`の`add_participant`アサーション修正:** 
-    *   `projects/tests.py`内の`ProjectManageViewTests.test_post_create_and_send_success`において、`mock_api_instance.add_participant.assert_called_once_with`のアサーションから、冗長な`recipient_id=None`のキーワード引数を削除し、実際の呼び出し形式と一致するように修正しました。
-*   **`EmbeddedProjectCreateViewTests`の修正:** 
-    *   `projects/tests.py`内の`EmbeddedProjectCreateViewTests.test_post_create_draft_success`テストは、組み込み署名ビューに下書き機能が存在しないため、削除しました。
-    *   `projects/tests.py`内の`EmbeddedProjectCreateViewTests.test_post_create_and_get_signing_urls_success`テストにおいて、`@patch('projects.views.CloudSignAPIClient')`によるモックを、`@patch('projects.views.CloudSignAPIClient.create_embedded_signing_document')`に直接変更し、API呼び出しのモックをより正確にシミュレートするようにしました。
-    *   上記のテストで、参加者のフォームセットが`tel`フィールドと`is_embedded_signer`フラグのバリデーションに失敗していることをデバッグプリントで特定しました。テストデータに`'participants-0-is_embedded_signer': 'on'`および`'participants-0-tel': '...'`といった必要な情報を追加して修正しました。
-    *   これらの修正をそれぞれ適切なコミットメッセージ（「refactor: Remove obsolete EmbeddedSigningView components」、「fix: Correct garbled assertions in duplicated tests」、「fix: Update mocking strategy for embedded signing success test」、「fix: Provide required tel for embedded signers in test」）でコミットしました。
-
-#### 52. 全テストの合格確認 (2026年1月16日)
-*   上記の一連の修正後、`.\venv\Scripts\python.exe manage.py test projects`コマンドを再実行しました。
-*   **結果: 全53個のテストが正常にパスすることを確認しました。**
-*   これにより、組み込み署名機能を含む既存のコードベース全体が安定しており、正しく動作していることが検証されました。
-
-### 組み込み署名機能の現状
-
-*   `指示書.txt`に記載された「組み込み署名機能を利用した新規案件作成画面」は、`EmbeddedProjectCreateView`として実装され、動作することがテストによって確認されています。
-*   同画面で作成された案件が「案件一覧」に表示されるという要件も、`EmbeddedProjectCreateView`が標準の`Project`オブジェクトを作成するため、自動的に満たされていることを確認しました。
-
-**結論として、組み込み署名機能の主要な要件は実装され、テストによって検証が完了しました。**
+    *   `projects/templates/projects/project_detail.html`から、廃止された`embedded_signing_view`へのリンク (`<a href=

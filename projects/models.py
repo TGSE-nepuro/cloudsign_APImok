@@ -101,7 +101,7 @@ class Participant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(Project, related_name='participants', on_delete=models.CASCADE, verbose_name=_("案件"))
     name = models.CharField(max_length=100, verbose_name=_("宛先名"))
-    email = models.EmailField(verbose_name=_("メールアドレス"))
+    email = models.EmailField(verbose_name=_("メールアドレス"), blank=True, null=True)
     order = models.PositiveIntegerField(default=1, verbose_name=_("順序"))
     # New fields for CloudSign integration
     cloudsign_participant_id = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("CloudSign Participant ID"))

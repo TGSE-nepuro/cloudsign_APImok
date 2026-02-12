@@ -114,25 +114,41 @@ ParticipantFormSet = inlineformset_factory(
 class EmbeddedParticipantForm(forms.ModelForm):
     class Meta:
         model = Participant
-        fields = ['name', 'email', 'order', 'tel', 'is_embedded_signer']
+        fields = ['name', 'email', 'tel', 'order', 'is_embedded_signer']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'order': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'tel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('例: 09012345678')}),
-            'is_embedded_signer': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_embedded_signer': forms.CheckboxInput(attrs={'class': 'form-check-input participant-signer-checkbox'}),
+        }
+        # Make fields optional at form level, validation is handled in clean()
+        extra_kwargs = {
+            'email': {'required': False},
+            'tel': {'required': False},
         }
 
     def clean(self):
         cleaned_data = super().clean()
-        is_embedded = cleaned_data.get("is_embedded_signer")
+        is_embedded_signer = cleaned_data.get("is_embedded_signer")
         tel = cleaned_data.get("tel")
+        email = cleaned_data.get("email")
 
-        if is_embedded and not tel:
-            raise ValidationError(
-                _("組み込み署名者には電話番号が必須です。"),
-                code='tel_required_for_embedded_signer'
-            )
+        if is_embedded_signer:
+            # If it's an embedded signer, a phone number is required and email is not allowed.
+            if not tel:
+                self.add_error('tel', _("組み込み署名者には電話番号が必須です。"))
+            if email:
+                # This field should be empty, we clear it just in case.
+                cleaned_data['email'] = ''
+        else:
+            # If it's a regular (email) signer, email is required and phone is not allowed.
+            if not email:
+                self.add_error('email', _("メールアドレス署名者にはメールアドレスが必須です。"))
+            if tel:
+                # This field should be empty, we clear it just in case.
+                cleaned_data['tel'] = ''
+                
         return cleaned_data
 
 EmbeddedParticipantFormSet = inlineformset_factory(

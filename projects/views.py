@@ -5,14 +5,15 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db import models
 from .models import Project, CloudSignConfig, ContractFile, Participant
-from .forms import CloudSignConfigForm, ProjectForm, ContractFileFormSet, ParticipantFormSet
+from .forms import CloudSignConfigForm, ProjectForm, ContractFileFormSet, ParticipantFormSet, EmbeddedParticipantFormSet
 from .cloudsign_api import CloudSignAPIClient
 import re
 import logging
 import requests
 import os
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -908,3 +909,126 @@ class ProjectManageView(View):
         else:
             messages.error(request, "入力内容にエラーがあります。")
             return render(request, self.template_name, context)
+
+
+class EmbeddedProjectCreateView(View):
+    form_template_name = 'projects/embedded_project_form.html'
+    success_url_name = 'projects:embedded_project_create_success'
+
+    def get(self, request, *args, **kwargs):
+        context = {
+            'project_form': ProjectForm(),
+            'contract_file_formset': ContractFileFormSet(prefix='files'),
+            'participant_formset': EmbeddedParticipantFormSet(prefix='participants'),
+            'title': '新規組み込み署名案件作成',
+        }
+        return render(request, self.form_template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        project_form = ProjectForm(request.POST)
+        contract_file_formset = ContractFileFormSet(request.POST, request.FILES, prefix='files')
+        participant_formset = EmbeddedParticipantFormSet(request.POST, prefix='participants')
+
+        context = {
+            'project_form': project_form,
+            'contract_file_formset': contract_file_formset,
+            'participant_formset': participant_formset,
+            'title': '新規組み込み署名案件作成',
+        }
+
+        if not (project_form.is_valid() and contract_file_formset.is_valid() and participant_formset.is_valid()):
+            messages.error(request, "入力内容にエラーがあります。")
+            return render(request, self.form_template_name, context)
+
+        files = [
+            form.cleaned_data['file']
+            for form in contract_file_formset
+            if form.cleaned_data.get('file') and not form.cleaned_data.get('DELETE')
+        ]
+        if not files:
+            messages.error(request, "CloudSignドキュメント作成には、少なくとも1つのファイルが必要です。")
+            return render(request, self.form_template_name, context)
+
+        participants_data = [
+            form.cleaned_data
+            for form in participant_formset
+            if form.cleaned_data and not form.cleaned_data.get('DELETE')
+        ]
+        if not participants_data:
+            messages.error(request, "CloudSignドキュメント作成には、少なくとも1人の宛先が必要です。")
+            return render(request, self.form_template_name, context)
+        if not any(p.get('is_embedded_signer') for p in participants_data):
+            messages.error(request, "少なくとも1人は「組み込み署名者」として指定する必要があります。")
+            return render(request, self.form_template_name, context)
+
+        project = project_form.save()
+        contract_file_formset.instance = project
+        contract_file_formset.save()
+        participant_formset.instance = project
+        participant_instances = participant_formset.save()
+
+        try:
+            client = CloudSignAPIClient()
+            document_id, signing_urls, participants_with_cs_id = client.create_embedded_signing_document(
+                title=project.title,
+                files=files,
+                participants_data=participants_data,
+            )
+            project.cloudsign_document_id = document_id
+            project.save()
+
+            participant_map = {p.email: p for p in participant_instances}
+            for p_data in participants_with_cs_id:
+                participant = participant_map.get(p_data.get('email'))
+                if not participant:
+                    continue
+                participant.cloudsign_participant_id = p_data.get('cloudsign_participant_id')
+                url_info = next(
+                    (url for url in signing_urls if url.get('cloudsign_participant_id') == p_data.get('cloudsign_participant_id')),
+                    None,
+                )
+                if url_info:
+                    participant.signing_url = url_info.get('url')
+                participant.save()
+
+            request.session['embedded_project_id'] = project.id
+            messages.success(request, "案件が作成され、組み込み署名URLが生成されました。")
+            return redirect(self.success_url_name)
+        except Exception as e:
+            logger.error(f"[{self.__class__.__name__}][post][Project: {project.id}] Error creating embedded signing document: {e}", exc_info=True)
+            messages.error(request, f"CloudSign連携中にエラーが発生しました: {e}")
+            project.delete()
+            return render(request, self.form_template_name, context)
+
+
+class EmbeddedProjectSuccessView(TemplateView):
+    template_name = 'projects/embedded_project_success.html'
+
+    def get(self, request, *args, **kwargs):
+        project_id = request.session.pop('embedded_project_id', None)
+        if not project_id:
+            messages.warning(request, "表示する署名URL情報がありません。")
+            return redirect(reverse_lazy('projects:project_list'))
+        project = get_object_or_404(Project, pk=project_id)
+        participants_with_urls = project.participants.filter(is_embedded_signer=True, signing_url__isnull=False)
+        return render(request, self.template_name, {
+            'project': project,
+            'participants_with_urls': participants_with_urls,
+        })
+
+
+class SigningView(DetailView):
+    model = Participant
+    template_name = 'projects/signing_page.html'
+    context_object_name = 'participant'
+    slug_field = 'id'
+    slug_url_kwarg = 'signer_id'
+
+    def get_object(self, queryset=None):
+        signer_id = self.kwargs.get(self.slug_url_kwarg)
+        try:
+            if isinstance(signer_id, str):
+                UUID(signer_id)
+        except (ValueError, TypeError):
+            raise Http404("無効な署名者IDです。")
+        return get_object_or_404(Participant, id=signer_id)

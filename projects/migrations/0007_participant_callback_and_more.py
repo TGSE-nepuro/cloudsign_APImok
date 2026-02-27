@@ -16,33 +16,8 @@ class Migration(migrations.Migration):
             field=models.BooleanField(default=False, verbose_name='組込み署名フラグ'),
         ),
         migrations.AddField(
-            model_name='participant',
-            name='cloudsign_participant_id',
-            field=models.CharField(blank=True, max_length=36, null=True, verbose_name='CloudSign Participant ID'),
-        ),
-        migrations.AddField(
-            model_name='participant',
-            name='recipient_id',
-            field=models.CharField(blank=True, max_length=64, null=True, verbose_name='受信者ID'),
-        ),
-        migrations.AddField(
-            model_name='participant',
-            name='tel',
-            field=models.CharField(blank=True, max_length=20, null=True, verbose_name='電話番号'),
-        ),
-        migrations.AddField(
             model_name='project',
             name='send_method',
             field=models.CharField(blank=True, choices=[('normal', '通常送信'), ('embedded_sms', '組込み署名（SMS認証）'), ('simple_auth', '簡易認証')], max_length=20, null=True, verbose_name='送信種別'),
-        ),
-        migrations.AlterField(
-            model_name='participant',
-            name='email',
-            field=models.EmailField(blank=True, max_length=254, null=True, verbose_name='メールアドレス'),
-        ),
-        migrations.AlterField(
-            model_name='participant',
-            name='order',
-            field=models.PositiveIntegerField(default=1, verbose_name='順序'),
         ),
     ]

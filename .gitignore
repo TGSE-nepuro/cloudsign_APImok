@@ -26,3 +26,6 @@ Thumbs.db
 
 # Media files
 media/
+
+# Confidential documents
+docs/

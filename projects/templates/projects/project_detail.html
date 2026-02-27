@@ -19,6 +19,21 @@
             <p class="card-text">{{ project.amount|default:"未設定" }}</p>
             <h5 class="card-title">CloudSign Document ID:</h5>
             <p class="card-text">{{ project.cloudsign_document_id|default:"未設定" }}</p>
+            {% if project.send_method %}
+                <h5 class="card-title">送信種別:</h5>
+                <p class="card-text">{{ project.get_send_method_display }}</p>
+            {% endif %}
+
+            {% if files %}
+                <h5 class="card-title">送信PDFファイル:</h5>
+                <ul class="list-group mb-3">
+                    {% for f in files %}
+                        <li class="list-group-item">
+                            {{ f.original_name|default:f.file.name|truncatechars:80 }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
             {% if cloudsign_status %}
                 <h5 class="card-title">CloudSign ステータス:</h5>
                 <p class="card-text">{{ cloudsign_status }}</p>
@@ -28,7 +43,11 @@
                 <h5 class="card-title">CloudSign 参加者:</h5>
                 <ul class="list-group mb-3">
                     {% for participant in cloudsign_participants %}
-                        <li class="list-group-item">{{ participant.name }} ({{ participant.email }})</li>
+                        <li class="list-group-item">
+                            {{ participant.name }}
+                            {% if participant.tel %}（{{ participant.tel }}）{% endif %}
+                            {% if participant.email %} ({{ participant.email }}){% endif %}
+                        </li>
                     {% endfor %}
                 </ul>
             {% else %}
@@ -62,6 +81,26 @@
                 {% if cloudsign_status == "締結済" %}
                     <a href="{% url 'projects:download_document' project.pk %}" class="btn btn-primary" style="margin-left: 5px;">契約書を取得</a>
                 {% endif %}
+            {% endif %}
+
+            {% if project.cloudsign_document_id and project.participants.exists and project.send_method == 'embedded_sms' %}
+                <hr>
+                <h5 class="card-title">同意用マイページ</h5>
+                <p class="text-muted">受信者に案内する際は、対象宛先のリンクを使用してください。</p>
+                <ul class="list-group">
+                    {% for participant in project.participants.all %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                {{ participant.name }}
+                                {% if participant.tel %}（{{ participant.tel }}）{% endif %}
+                                {% if participant.cloudsign_participant_id %}（ID取得済み）{% else %}（ID未取得）{% endif %}
+                            </span>
+                            {% if participant.cloudsign_participant_id %}
+                                <a class="btn btn-sm btn-outline-primary" href="{% url 'projects:consent_mypage' %}?document_id={{ project.cloudsign_document_id }}&participant_id={{ participant.cloudsign_participant_id }}&local_participant_id={{ participant.id }}">同意用マイページ</a>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
             {% endif %}
         </div>
     </div>

@@ -12,11 +12,33 @@
     .formset-row:last-child {
         border-bottom: none;
     }
+    .field-hidden {
+        display: none;
+    }
 </style>
 
 <h1>{% if project_form.instance.pk %}案件編集{% else %}新規案件作成{% endif %}</h1>
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
+
+    <h2>送信方法</h2>
+    <p class="text-muted">送信方法に応じて必須項目が変わります。通常送信はメールアドレス必須、組込み署名（SMS認証）は電話番号必須、簡易認証は受信者ID必須です。組込み署名（SMS認証）はCloudSign側のチーム設定でcallback許可が必要です。</p>
+    <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="send_mode" id="send_mode_normal" value="normal" {% if send_mode == 'normal' %}checked{% endif %}>
+            <label class="form-check-label" for="send_mode_normal">通常送信（メールアドレス必須）</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="send_mode" id="send_mode_embedded_sms" value="embedded_sms" {% if send_mode == 'embedded_sms' %}checked{% endif %}>
+            <label class="form-check-label" for="send_mode_embedded_sms">組込み署名（SMS認証）送信（電話番号必須）</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="send_mode" id="send_mode_simple_auth" value="simple_auth" {% if send_mode == 'simple_auth' %}checked{% endif %}>
+            <label class="form-check-label" for="send_mode_simple_auth">簡易認証での送信（受信者ID必須）</label>
+        </div>
+    </div>
+
+    <hr>
 
     <h2>案件情報</h2>
     <div class="mb-3">
@@ -61,7 +83,7 @@
                 <div class="col-md-11">
                     {{ file_form.id }}
                     {% if file_form.instance.pk and file_form.instance.file %}
-                        <p class="mb-1">現在設定されているファイル: <a href="{{ file_form.instance.file.url }}" target="_blank">{{ file_form.instance.file.name|truncatechars:50 }}</a></p>
+                        <p class="mb-1">現在設定されているファイル: <a href="{{ file_form.instance.file.url }}" target="_blank">{{ file_form.instance.original_name|default:file_form.instance.file.name|truncatechars:50 }}</a></p>
                     {% endif %}
                     {{ file_form.file }}
                     {% for error in file_form.file.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
@@ -102,10 +124,12 @@
     <div id="participant-formset-container">
         {% for p_form in participant_formset %}
         <div class="row align-items-start formset-row participant-form">
-            <div class="col-md-4">{{ p_form.name.label_tag }} {{ p_form.name }} {% for error in p_form.name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
-            <div class="col-md-4">{{ p_form.email.label_tag }} {{ p_form.email }} {% for error in p_form.email.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
-            <div class="col-md-2">{{ p_form.order.label_tag }} {{ p_form.order }} {% for error in p_form.order.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
-            <div class="col-md-2 text-center pt-4">
+            <div class="col-md-3 field-name">{{ p_form.name.label_tag }} {{ p_form.name }} {% for error in p_form.name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-3 field-email">{{ p_form.email.label_tag }} {{ p_form.email }} {% for error in p_form.email.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-2 field-tel">{{ p_form.tel.label_tag }} {{ p_form.tel }} {% for error in p_form.tel.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-2 field-recipient-id">{{ p_form.recipient_id.label_tag }} {{ p_form.recipient_id }} {% for error in p_form.recipient_id.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-1 field-order">{{ p_form.order.label_tag }} {{ p_form.order }} {% for error in p_form.order.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+            <div class="col-md-1 text-center pt-4">
                 {% if p_form.instance.pk %}
                     <div class="form-check">
                         {{ p_form.DELETE }}
@@ -123,10 +147,12 @@
 
     <template id="participant-form-template">
         <div class="row align-items-start formset-row participant-form">
-            <div class="col-md-4">{{ participant_formset.empty_form.name.label_tag }} {{ participant_formset.empty_form.name }}</div>
-            <div class="col-md-4">{{ participant_formset.empty_form.email.label_tag }} {{ participant_formset.empty_form.email }}</div>
-            <div class="col-md-2">{{ participant_formset.empty_form.order.label_tag }} {{ participant_formset.empty_form.order }}</div>
-            <div class="col-md-2 text-center pt-4">
+            <div class="col-md-3 field-name">{{ participant_formset.empty_form.name.label_tag }} {{ participant_formset.empty_form.name }}</div>
+            <div class="col-md-3 field-email">{{ participant_formset.empty_form.email.label_tag }} {{ participant_formset.empty_form.email }}</div>
+            <div class="col-md-2 field-tel">{{ participant_formset.empty_form.tel.label_tag }} {{ participant_formset.empty_form.tel }}</div>
+            <div class="col-md-2 field-recipient-id">{{ participant_formset.empty_form.recipient_id.label_tag }} {{ participant_formset.empty_form.recipient_id }}</div>
+            <div class="col-md-1 field-order">{{ participant_formset.empty_form.order.label_tag }} {{ participant_formset.empty_form.order }}</div>
+            <div class="col-md-1 text-center pt-4">
                 <button type="button" class="btn btn-sm btn-danger remove-form-row"><i class="fas fa-trash"></i></button>
             </div>
             {{ participant_formset.empty_form.id }}
@@ -166,6 +192,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // --- Participant Formset ---
+    const sendModeInputs = document.querySelectorAll('input[name="send_mode"]');
+    function updateParticipantFieldVisibility(mode) {
+        const emailFields = document.querySelectorAll('.field-email');
+        const telFields = document.querySelectorAll('.field-tel');
+        const recipientFields = document.querySelectorAll('.field-recipient-id');
+
+        emailFields.forEach(el => el.classList.toggle('field-hidden', mode !== 'normal'));
+        telFields.forEach(el => el.classList.toggle('field-hidden', mode !== 'embedded_sms'));
+        recipientFields.forEach(el => el.classList.toggle('field-hidden', mode !== 'simple_auth'));
+
+        document.querySelectorAll('.field-email input').forEach(input => input.required = (mode === 'normal'));
+        document.querySelectorAll('.field-tel input').forEach(input => input.required = (mode === 'embedded_sms'));
+        document.querySelectorAll('.field-recipient-id input').forEach(input => input.required = (mode === 'simple_auth'));
+    }
+
+    sendModeInputs.forEach(input => {
+        input.addEventListener('change', () => updateParticipantFieldVisibility(input.value));
+    });
+
+    const initialMode = document.querySelector('input[name="send_mode"]:checked')?.value || 'normal';
+    updateParticipantFieldVisibility(initialMode);
     const participantFormsetContainer = document.getElementById('participant-formset-container');        
     const addParticipantButton = document.getElementById('add-participant-form');
     const participantFormTemplate = document.getElementById('participant-form-template');

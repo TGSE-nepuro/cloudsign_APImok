@@ -1,4 +1,3 @@
-import uuid
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -14,6 +13,13 @@ def validate_file_size(value):
     if value.size > limit:
         raise ValidationError(_('File size cannot exceed 20 MB.'))
 
+
+SEND_METHOD_CHOICES = [
+    ('normal', '通常送信'),
+    ('embedded_sms', '組込み署名（SMS認証）'),
+    ('simple_auth', '簡易認証'),
+]
+
 class Project(models.Model):
     """
     Represents a project in the application. Each project can be associated
@@ -26,6 +32,13 @@ class Project(models.Model):
     amount = models.BigIntegerField(blank=True, null=True, help_text=_("金額"), verbose_name=_("金額"))
     # Stores the ID of the corresponding document in CloudSign, if created.
     cloudsign_document_id = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("CloudSign Document ID"))
+    send_method = models.CharField(
+        max_length=20,
+        choices=SEND_METHOD_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name=_("送信種別")
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("作成日時"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新日時"))
 
@@ -50,6 +63,7 @@ class ContractFile(models.Model):
         ],
         verbose_name=_("契約書ファイル")
     )
+    original_name = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("元ファイル名"))
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("アップロード日時"))
 
     class Meta:
@@ -98,19 +112,14 @@ class Participant(models.Model):
     linked to a local Project. This allows saving draft participants
     before sending a document.
     """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(Project, related_name='participants', on_delete=models.CASCADE, verbose_name=_("案件"))
     name = models.CharField(max_length=100, verbose_name=_("宛先名"))
-    email = models.EmailField(verbose_name=_("メールアドレス"), blank=True, null=True)
-    order = models.PositiveIntegerField(default=1, verbose_name=_("順序"))
-    # New fields for CloudSign integration
-    cloudsign_participant_id = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("CloudSign Participant ID"))
-    # recipient_id is required for embedded signing (simple authentication)
-    recipient_id = models.CharField(max_length=64, blank=True, null=True, verbose_name=_("CloudSign Recipient ID for Embedded Signing"))
+    email = models.EmailField(blank=True, null=True, verbose_name=_("メールアドレス"))
     tel = models.CharField(max_length=20, blank=True, null=True, verbose_name=_("電話番号"))
-    is_embedded_signer = models.BooleanField(default=False, verbose_name=_("組み込み署名者"))
-    signing_url = models.URLField(blank=True, null=True, verbose_name=_("署名URL"))
-
+    recipient_id = models.CharField(max_length=64, blank=True, null=True, verbose_name=_("受信者ID"))
+    callback = models.BooleanField(default=False, verbose_name=_("組込み署名フラグ"))
+    cloudsign_participant_id = models.CharField(max_length=36, blank=True, null=True, verbose_name=_("CloudSign Participant ID"))
+    order = models.PositiveIntegerField(default=1, verbose_name=_("順序"))
 
     class Meta:
         verbose_name = _("宛先")

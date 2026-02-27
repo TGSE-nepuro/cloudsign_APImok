@@ -53,6 +53,14 @@ class ContractFileForm(forms.ModelForm):
             'file': forms.FileInput(attrs={'class': 'form-control', 'accept': 'application/pdf'}),
         }
 
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.cleaned_data.get('file') and not instance.original_name:
+            instance.original_name = self.cleaned_data['file'].name
+        if commit:
+            instance.save()
+        return instance
+
 class BaseContractFileFormSet(BaseInlineFormSet):
     def clean(self):
         super().clean()
@@ -99,12 +107,14 @@ ContractFileFormSet = forms.inlineformset_factory(
 ParticipantFormSet = inlineformset_factory(
     Project,
     Participant,
-    fields=('name', 'email', 'order'),
+    fields=('name', 'email', 'tel', 'recipient_id', 'order'),
     extra=1,
     can_delete=True,
     widgets={
         'name': forms.TextInput(attrs={'class': 'form-control'}),
         'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        'tel': forms.TextInput(attrs={'class': 'form-control'}),
+        'recipient_id': forms.TextInput(attrs={'class': 'form-control'}),
         'order': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
     }
 )

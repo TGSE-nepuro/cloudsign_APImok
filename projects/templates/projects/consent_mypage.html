@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}同意用マイページ{% endblock %}
+
+{% block content %}
+    <h1>同意用マイページ</h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if signing_url %}
+        <p>以下のリンクから同意画面へ進んでください。</p>
+        <a class="btn btn-primary" href="{{ signing_url }}" target="_blank" rel="noopener">同意画面へ</a>
+        {% if expires_at %}
+            <p class="text-muted mt-2">URL有効期限: {{ expires_at }}</p>
+        {% endif %}
+    {% else %}
+        <p class="text-muted">署名URLの取得に失敗しました。入力値をご確認ください。</p>
+        <p class="text-muted">document_id: {{ document_id|default:"未指定" }}</p>
+        <p class="text-muted">participant_id: {{ participant_id|default:"未指定" }}</p>
+    {% endif %}
+{% endblock %}

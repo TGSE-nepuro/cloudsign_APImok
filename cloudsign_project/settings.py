@@ -77,15 +77,26 @@ WSGI_APPLICATION = 'cloudsign_project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+DB_NAME = os.environ.get('DB_NAME', 'cloudsign_db')
+DB_USER = os.environ.get('DB_USER', 'cloudsign_user')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', 'cloudsign_password')
+DB_HOST = os.environ.get('DB_HOST', '')
+DB_PORT = os.environ.get('DB_PORT', '')
+DB_SOCKET = os.environ.get('DB_SOCKET', '/tmp/mysql.sock')
+
+db_options = {}
+if DB_SOCKET:
+    db_options["unix_socket"] = DB_SOCKET
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'cloudsign_db',
-        'USER': 'cloudsign_user',
-        'PASSWORD': 'cloudsign_password',
-        'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {'ssl': False, 'connect_timeout': 10},
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': DB_HOST,
+        'PORT': DB_PORT,
+        'OPTIONS': db_options,
     }
 }
 

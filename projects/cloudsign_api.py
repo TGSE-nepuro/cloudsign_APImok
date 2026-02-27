@@ -163,158 +163,109 @@ class CloudSignAPIClient:
         """
         return self._make_authenticated_request("POST", f"/documents/{document_id}")
 
-    def add_participant(self, document_id, email, name, tel=None, callback=False, recipient_id=None):
+    def add_participant(self, document_id, name, email=None, tel=None, recipient_id=None, callback=False, advanced_authn_request=False):
         """
         Adds a participant to a CloudSign document.
         :param document_id: The ID of the document.
-        :param email: The email address of the participant.
         :param name: The name of the participant.
-        :param tel: Optional phone number for embedded signing (SMS authentication).
-        :param callback: Boolean flag indicating if participant is for embedded signing (SMS authentication).
-        :param recipient_id: Optional recipient_id for embedded signing (simple authentication).
-        :return: The CloudSign participant ID of the newly added participant.
+        :param email: The email address of the participant (optional).
+        :param tel: The phone number for embedded signature (SMS) (optional).
+        :param recipient_id: The recipient ID for simple authentication (optional).
+        :param callback: Embedded signature (SMS) flag.
+        :param advanced_authn_request: Advanced authentication flag (optional).
+        :return: The API response.
         """
         data = {
-            "email": email,
             "name": name,
         }
+        # 任意項目は指定がある場合のみ付与
+        if email:
+            data["email"] = email
         if tel:
-            data['tel'] = tel
-        if callback:
-            data['callback'] = True
+            data["tel"] = tel
         if recipient_id:
-            data['recipient_id'] = recipient_id
-        
-        # Ensure callback and recipient_id are not used together for the same participant if the API forbids it
-        # Based on spec, recipient_id is for "簡易認証", callback/tel for "SMS認証". Assume mutual exclusivity if both set.
-        if callback and recipient_id:
-            logger.warning(f"Both 'callback' and 'recipient_id' were provided for participant {email}. 'recipient_id' will be ignored for SMS authentication.")
-            del data['recipient_id'] # Prioritize SMS authentication as per our requirement.
+            data["recipient_id"] = recipient_id
+        if callback:
+            data["callback"] = True
+        if advanced_authn_request:
+            data["advanced_authn_request"] = True
+        return self._make_authenticated_request("POST", f"/documents/{document_id}/participants", data=data)
 
-        response_data = self._make_authenticated_request("POST", f"/documents/{document_id}/participants", data=data)
-        
-        # Find the newly added participant's ID in the response
-        new_participant_id = None
-        for participant in response_data.get('participants', []):
-            if participant.get('email') == email and participant.get('name') == name:
-                new_participant_id = participant.get('id')
-                break
-        
-        if not new_participant_id:
-            raise Exception(f"Could not find the ID of the newly added participant ({email}, {name}) in CloudSign response.")
 
-        return new_participant_id
-
-    def create_embedded_signing_document(self, title, files, participants_data):
+    def get_signing_url(self, document_id, participant_id, recipient_id=None):
         """
-        Handles the full workflow for creating a document with embedded signing.
-        1. Creates the document.
-        2. Adds files to the document.
-        3. Adds participants (distinguishing embedded signers).
-        4. Generates embedded signing URLs for designated embedded signers.
-        :param title: The title of the document.
-        :param files: A list of file-like objects (e.g., SimpleUploadedFile) to upload.
-        :param participants_data: A list of dictionaries, each containing participant details
-                                  (e.g., {'name': '...', 'email': '...', 'tel': '...', 'is_embedded_signer': True}).
-        :return: A tuple (document_id, list_of_signing_urls_info).
-                 list_of_signing_urls_info is a list of dicts: {'name': '...', 'url': '...', 'expires_at': '...'}.
+        Retrieves signing URL for embedded signature (SMS) participants.
+        :param document_id: The ID of the document.
+        :param participant_id: The participant ID.
+        :param recipient_id: The recipient ID for simple authentication (optional).
+        :return: The API response containing signing URL and expiry.
         """
-        # 1. Create Document
-        document_response = self.create_document(title)
-        document_id = document_response['id']
-        logger.info(f"[create_embedded_signing_document][create_document][Project: {document_id}] Document created successfully with ID: {document_id}")
+        data = {}
+        if recipient_id:
+            data["recipient_id"] = recipient_id
+        return self._make_authenticated_request(
+            "POST",
+            f"/documents/{document_id}/participants/{participant_id}/signing_url",
+            data=data
+        )
 
-        # 2. Add Files
-        if not files:
-            raise ValueError("No files provided for document creation.")
-        for file in files:
-            self.add_file_to_document(document_id, file)
-            logger.info(f"[create_embedded_signing_document][add_file_to_document][Project: {document_id}] File '{file.name}' added.")
-        
-        # Store CloudSign participant IDs and their tel for generating signing URLs later
-        embedded_signers_for_url_generation = []
-        all_participants_with_cs_id = []
-
-        # 3. Add Participants
-        for participant_data in participants_data:
-            name = participant_data['name']
-            email = participant_data['email']
-            is_embedded_signer = participant_data.get('is_embedded_signer', False)
-            tel = participant_data.get('tel')
-            recipient_id = participant_data.get('recipient_id') # For simple embedded auth if needed
-            
-            # Decide whether to use callback/tel or recipient_id based on is_embedded_signer
-            if is_embedded_signer:
-                if not tel:
-                    raise ValueError(f"Phone number (tel) is required for embedded signer {name} ({email}).")
-                cloudsign_participant_id = self.add_participant(
-                    document_id, email, name, tel=tel, callback=True
-                )
-                embedded_signers_for_url_generation.append({
-                    'name': name,
-                    'cloudsign_participant_id': cloudsign_participant_id,
-                    'tel': tel # Store tel for generating signing URL if needed
-                })
-                logger.info(f"[create_embedded_signing_document][add_participant][Project: {document_id}] Embedded signer '{name}' added with ID: {cloudsign_participant_id}")
-            else:
-                cloudsign_participant_id = self.add_participant(
-                    document_id, email, name, recipient_id=recipient_id
-                )
-                logger.info(f"[create_embedded_signing_document][add_participant][Project: {document_id}] Participant '{name}' added with ID: {cloudsign_participant_id}")
-            
-            all_participants_with_cs_id.append({
-                'name': name,
-                'email': email,
-                'cloudsign_participant_id': cloudsign_participant_id,
-                'is_embedded_signer': is_embedded_signer
-            })
-
-        # 4. Generate Embedded Signing URLs for designated embedded signers
-        generated_signing_urls_info = []
-        for signer_info in embedded_signers_for_url_generation:
-            signing_info = self.get_embedded_signing_url(
-                document_id,
-                signer_info['cloudsign_participant_id'],
-                # recipient_id はSMS認証では不要
-            )
-            generated_signing_urls_info.append({
-                'name': signer_info['name'],
-                'url': signing_info['url'],
-                'expires_at': signing_info['expires_at'],
-                'cloudsign_participant_id': signer_info['cloudsign_participant_id']
-            })
-            logger.info(f"[create_embedded_signing_document][get_embedded_signing_url][Project: {document_id}] Signing URL generated for '{signer_info['name']}'.")
-
-        return document_id, generated_signing_urls_info, all_participants_with_cs_id
-
-    def add_file_to_document(self, document_id, file):
+    def add_file_to_document(self, document_id, file, display_name=None):
         """
         Adds a PDF file to an existing CloudSign document.
         :param document_id: The ID of the document to add the file to.
         :param file: A file-like object (e.g., SimpleUploadedFile) to upload.
+        :param display_name: Optional display name for the file in CloudSign.
         :return: The API response.
         """
         files_to_upload = []
         file.seek(0) # Ensure file pointer is at the beginning
         
-        # Use the file object's name directly, ensuring it ends with .pdf
-        original_file_name = file.name
+        # --- Start enhanced logging for file upload ---
+        file_name = file.name
+        file_size = file.size
+        # Read a small snippet to log, then reset pointer for actual upload
+        snippet_size = 200 # Log first 200 bytes
+        file_snippet = file.read(snippet_size)
+        file.seek(0) # Reset pointer for the actual request
+        
+        logger.info(f"Preparing to upload file: name='{file_name}', size={file_size} bytes.")
+        logger.debug(f"File '{file_name}' starts with (first {snippet_size} bytes): {file_snippet[:100]}...") # Log only first 100 of snippet
+        # --- End enhanced logging ---
+
+        original_file_name = display_name or file_name # Prefer display name when provided
+        
+        # Split base name and extension
         base_name_without_ext, ext = os.path.splitext(os.path.basename(original_file_name))
         
-        # Ensure the filename for the API has a .pdf extension
+        # Sanitize the base name: keep only ASCII alphanumeric, '-', '_', '.', and replace others with empty string
+        sanitized_base_name_list = []
+        for char in base_name_without_ext:
+            if char.isalnum() or char in '.-_':
+                sanitized_base_name_list.append(char)
+        sanitized_base_name = "".join(sanitized_base_name_list).encode('ascii', 'ignore').decode('ascii')
+
+        # Fallback if sanitization results in an empty base name
+        if not sanitized_base_name:
+            sanitized_base_name = "document_file" 
+        
+        # Ensure extension is .pdf
         if not ext or ext.lower() != '.pdf':
-            # If no extension or wrong extension, append .pdf to the base name
-            file_name_for_api = f"{base_name_without_ext}.pdf"
-        else:
-            file_name_for_api = original_file_name
+            ext = '.pdf'
+        
+        sanitized_file_name = f"{sanitized_base_name}{ext}"
 
-        logger.info(f"Original file name: '{original_file_name}', File name for API: '{file_name_for_api}'")
+        logger.info(f"Original file name: '{original_file_name}', Sanitized file name for API: '{sanitized_file_name}'")
 
+        # files_to_upload は不要になる
+        # files_to_upload.append(('uploadfile', (sanitized_file_name, file.read(), 'application/pdf')))
+
+        # 'name'フィールドと'uploadfile'フィールドの両方を含むmultipartフォームのデータを構築
+        # 'name'フィールドは通常のフォームデータとして 'data' パラメータで送る
         data_fields = {
-            'name': file_name_for_api,
+            'name': original_file_name,
         }
         files_fields = {
-            'uploadfile': (file_name_for_api, file.read(), 'application/pdf'),
+            'uploadfile': (sanitized_file_name, file.read(), 'application/pdf'),
         }
 
         # _make_authenticated_request の引数を変更
@@ -377,42 +328,33 @@ class CloudSignAPIClient:
             json=payload # Send as JSON body
         )
 
-    def get_embedded_signing_url(self, document_id, participant_id, recipient_id=None):
-        """
-        Obtains the embedded signing URL for a specific participant in a document.
-        :param document_id: The ID of the document.
-        :param participant_id: The CloudSign participant ID.
-        :param recipient_id: Optional recipient_id for embedded signing (simple authentication).
-        :return: The API response containing the signing URL and its expiration.
-        """
-        endpoint = f"/documents/{document_id}/participants/{participant_id}/signing_url"
-        
-        data = {}
-        if recipient_id:
-            data['recipient_id'] = recipient_id
-        
-        # The API spec for this endpoint shows POST with application/x-www-form-urlencoded
-        # and a requestBody with recipient_id.
-        return self._make_authenticated_request("POST", endpoint, data=data)
-
-    def download_document(self, document_id):
+    def download_document(self, document_id, file_id=None):
         """
         Downloads the raw content of a signed CloudSign document file.
         :param document_id: The ID of the document.
-        :return: The raw content (bytes) of the document file.
+        :param file_id: The ID of the file within the document (optional).
+        :return: Tuple (bytes content, file name).
         :raises Exception: If the download fails due to API errors or network issues.
         """
         self._get_access_token()
 
         headers = {"Authorization": f"Bearer {self.access_token}"}
-        # Assuming the endpoint for downloading the file is /documents/{documentID}/file
-        url = f"{self.api_base_url}/documents/{document_id}/file"
+        file_name = None
+        if not file_id:
+            detail = self.get_document(document_id)
+            files = detail.get('files', [])
+            if not files:
+                raise Exception("CloudSign書類にファイルが存在しません。")
+            file_id = files[0].get('id')
+            file_name = files[0].get('name')
+
+        url = f"{self.api_base_url}/documents/{document_id}/files/{file_id}"
 
         try:
             # Use stream=True for potentially large files, but return content directly here
             response = requests.get(url, headers=headers, stream=True, timeout=60)
             response.raise_for_status() # Raise an exception for HTTP errors
-            return response.content # Return raw content bytes
+            return response.content, file_name
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP error during CloudSign document download for {document_id}: {e.response.status_code} - {e.response.text}")
             if e.response.status_code == 401:
@@ -423,7 +365,7 @@ class CloudSignAPIClient:
                 headers["Authorization"] = f"Bearer {self.access_token}" # Update header with new token
                 response = requests.get(url, headers=headers, stream=True, timeout=60)
                 response.raise_for_status()
-                return response.content
+                return response.content, file_name
             raise # Re-raise other HTTP errors
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error during CloudSign document download for {document_id}: {e}")
